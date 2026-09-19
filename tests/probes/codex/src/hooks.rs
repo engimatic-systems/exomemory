@@ -397,6 +397,12 @@ fn drive(run: &Path, address: std::net::SocketAddr) -> Result<()> {
                     && v["params"]["threadId"] == child_id
                     && v["params"]["item"]["type"] == "contextCompaction"
             })?;
+            // The compaction item can complete before its post-compaction hook runs.
+            host.until(|v| {
+                v["method"] == "hook/completed"
+                    && v["params"]["threadId"] == child_id
+                    && v["params"]["run"]["eventName"] == "postCompact"
+            })?;
             let mut child_reset = false;
             for file in fs::read_dir(run.join("hooks"))? {
                 let hook: Value = serde_json::from_slice(&fs::read(file?.path())?)?;

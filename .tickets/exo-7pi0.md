@@ -60,3 +60,11 @@ exo-adfe is superseded, not implemented. This ticket now verifies ordinary hooks
 **2026-09-19T14:53:22Z**
 
 Verified Codex 0.155.1 with the isolated --hooks probe. All eleven event types execute synchronously; prompt gate prevents model advance; context markers and insertion during a waiting permission hook reach actual scripted-provider requests. Aborted compaction emits no PostCompact; successful root and child compactions do, with parent-session/child-context identity. Stop output must be {} rather than additionalContext. See verification/CODEX-HOOKS.md for commands, limits, and adapter mapping. Probe formatting, Clippy, and executable checks pass. This establishes the host path, not full application or real-model acceptance.
+
+**2026-09-19T14:53:45Z**
+
+The added child identity assertion exposed ordering in the test: contextCompaction item completion can precede PostCompact execution. Reopened pending a run that waits for hook/completed before inspecting child reset identity; earlier successful runs had observed the hook after waiting for archive.
+
+**2026-09-19T14:54:53Z**
+
+Final probe run tests/.runtime/hooks-71596-1789829625653 passed after waiting for the actual child PostCompact hook. Root/child identities, all hook statuses, model markers, prompt barrier, and aborted-compaction checks now pass together. Close the investigation; exo-dcwx owns application wiring and real Luna inference.
