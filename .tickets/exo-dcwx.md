@@ -1,6 +1,6 @@
 ---
 id: exo-dcwx
-status: open
+status: closed
 deps: [exo-a6l7, exo-5iw6, exo-7pi0]
 links: []
 created: 2026-09-19T03:37:25Z
@@ -42,3 +42,9 @@ Adapter: a thin translation layer between host events and the application's shar
 The earlier 0.155.1 stdio probe verifies item injection only. exo-7pi0 verifies
 ordinary hooks and completed-compaction reporting under the revised contract in
 verification/ATTEMPT-SUPPRESSION.md. No host fork or exact-presence API is required.
+
+## Notes
+
+**2026-09-19T15:07:59Z**
+
+Implemented version-pinned Unix WebSocket hook adapter. All 23 offline tests, fmt and clippy pass. Two real GPT 5.6 Luna runs passed; final run tests/.runtime/r1d329a69da40 proves full exoctl read, suppression, completed-compaction reset, resurfacing and successful shutdown hooks. Temporary authentication copy removed. See verification/CODEX-ACCEPTANCE.md; scripted all-event/child/permission evidence remains separately labeled.

@@ -36,6 +36,7 @@ impl Bounds {
 pub struct RenderedGhost {
     ghost: Ghost,
     serialized: String,
+    wire_bytes: usize,
 }
 impl RenderedGhost {
     pub fn ghost(&self) -> &Ghost {
@@ -43,6 +44,9 @@ impl RenderedGhost {
     }
     pub fn serialized(&self) -> &str {
         &self.serialized
+    }
+    pub fn wire_bytes(&self) -> usize {
+        self.wire_bytes
     }
 }
 pub fn render(ghost: &Ghost, bounds: &Bounds) -> Result<RenderedGhost> {
@@ -69,7 +73,9 @@ pub fn render(ghost: &Ghost, bounds: &Bounds) -> Result<RenderedGhost> {
         .replace('>', "\\u003e")
         .replace('&', "\\u0026");
     serialized.push('\n');
-    if serialized.len() > bounds.max_ghost_bytes {
+    // The host RPC embeds this JSON line in a string, which adds another escaping layer.
+    let wire_bytes = serde_json::to_vec(&serialized)?.len();
+    if wire_bytes > bounds.max_ghost_bytes {
         return Err(Error::new(
             ErrorCode::InvalidInput,
             "final serialized ghost exceeds byte limit",
@@ -78,5 +84,6 @@ pub fn render(ghost: &Ghost, bounds: &Bounds) -> Result<RenderedGhost> {
     Ok(RenderedGhost {
         ghost: ghost.clone(),
         serialized,
+        wire_bytes,
     })
 }
