@@ -15,6 +15,20 @@ fn run() -> Result<()> {
     // Global definitions are inert outside the installed host, which sets this variable.
     if args == ["--env"] {
         let Ok(path) = std::env::var("EXOMEMORY_HOOK_CONFIG") else {
+            // One startup diagnostic explains inactive recall without injecting data or blocking Codex.
+            let mut input = Vec::new();
+            std::io::stdin()
+                .take(exomemory::transport::MAX_WIRE_BYTES + 1)
+                .read_to_end(&mut input)?;
+            if serde_json::from_slice::<serde_json::Value>(&input)
+                .ok()
+                .is_some_and(|v| v["hook_event_name"] == "SessionStart")
+            {
+                eprintln!(
+                    "Exomemory recall is inactive: this session is outside the Exomemory host. Run exomemory status and launch codex from a new terminal after repairing PATH."
+                );
+            }
+
             println!("{{}}");
             return Ok(());
         };

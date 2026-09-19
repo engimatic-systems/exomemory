@@ -92,6 +92,131 @@ fn managed(
     )?;
     write(&path, contents.as_bytes(), mode)
 }
+const PATH_BEGIN: &str = "# >>> Exomemory PATH >>>";
+const PATH_END: &str = "# <<< Exomemory PATH <<<";
+fn path_block(home: &Path) -> String {
+    format!(
+        "{PATH_BEGIN}\n# Keep the memory launcher ahead of Homebrew and other native Codex installations.\nexport PATH={}:\"$PATH\"\n{PATH_END}\n",
+        path_quote(&home.join(".local/bin"))
+    )
+}
+fn repair_path(installation: &mut Installation) -> Result<()> {
+    let block = path_block(&installation.home);
+    // Login and interactive shells have separate startup files, both read after .zshenv.
+    for name in [".zprofile", ".zshrc"] {
+        let path = installation.home.join(name);
+        let current = match fs::read_to_string(&path) {
+            Ok(s) => s,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => String::new(),
+            Err(e) => return Err(e.into()),
+        };
+        if (current.contains(PATH_BEGIN) || current.contains(PATH_END)) && !current.contains(&block)
+        {
+            return Err(Error::new(
+                ErrorCode::Conflict,
+                format!(
+                    "edited Exomemory PATH block in {}; preserve or remove it before repair",
+                    path.display()
+                ),
+            ));
+        }
+        let mut content = current.replace(&block, "");
+        if !content.is_empty() && !content.ends_with('\n') {
+            content.push('\n');
+        }
+        content.push_str(&block);
+        let mode = fs::metadata(&path)
+            .map(|m| m.permissions().mode())
+            .unwrap_or(0o600);
+        if let Some(saved) = installation.files.iter_mut().find(|f| f.path == path) {
+            saved.installed = content.as_bytes().to_vec();
+            write(
+                &installation.runtime.join("installation.json"),
+                &serde_json::to_vec_pretty(&installation)?,
+                0o600,
+            )?;
+            write(&path, content.as_bytes(), mode)?;
+        } else {
+            managed(installation, path, content, mode)?;
+        }
+    }
+    println!("Repaired zsh launcher PATH. Open a new terminal or source ~/.zshrc and run rehash.");
+    Ok(())
+}
+fn launcher_matches(found: &Path, expected: &Path) -> bool {
+    matches!((fs::canonicalize(found),fs::canonicalize(expected)),(Ok(a),Ok(b)) if a==b)
+}
+fn check_routing(installation: &Installation) -> Result<()> {
+    let expected = installation.home.join(".local/bin/codex");
+    let inherited = std::env::split_paths(&std::env::var_os("PATH").unwrap_or_default())
+        .map(|p| p.join("codex"))
+        .find(|p| {
+            fs::metadata(p).is_ok_and(|m| m.is_file() && m.permissions().mode() & 0o111 != 0)
+        });
+    let inherited = inherited.ok_or_else(|| {
+        Error::new(
+            ErrorCode::Unavailable,
+            "codex is missing from PATH; run exomemory repair-path and open a new terminal",
+        )
+    })?;
+    if !launcher_matches(&inherited, &expected) {
+        return Err(Error::new(
+            ErrorCode::Unavailable,
+            format!(
+                "recall inactive: PATH selects {}, expected {}; run exomemory repair-path, then open a new terminal",
+                inherited.display(),
+                expected.display()
+            ),
+        ));
+    }
+    // Shell startup may reorder PATH again; inspect the command a new terminal actually resolves.
+    let mut child = Command::new("/bin/zsh")
+        .args([
+            "-lic",
+            "printf '__EXOMEMORY_CODEX__%s\\n' \"$(command -v codex)\"",
+        ])
+        .env(
+            "ZDOTDIR",
+            std::env::var_os("ZDOTDIR").unwrap_or_else(|| installation.home.as_os_str().to_owned()),
+        )
+        .current_dir(&installation.home)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::null())
+        .spawn()?;
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while child.try_wait()?.is_none() {
+        if Instant::now() >= deadline {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(Error::new(
+                ErrorCode::Unavailable,
+                "login-shell routing check timed out",
+            ));
+        }
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    let output = child.wait_with_output()?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let resolved = stdout
+        .lines()
+        .find_map(|s| s.strip_prefix("__EXOMEMORY_CODEX__"))
+        .unwrap_or("<unresolved>");
+    if !output.status.success() || !launcher_matches(Path::new(resolved), &expected) {
+        return Err(Error::new(
+            ErrorCode::Unavailable,
+            format!(
+                "recall inactive: fresh login shell selects {resolved}, expected {}; run exomemory repair-path and check later shell overrides",
+                expected.display()
+            ),
+        ));
+    }
+    println!(
+        "Launcher routing verified on PATH and in a fresh login shell: {}",
+        expected.display()
+    );
+    Ok(())
+}
 fn xml(s: impl AsRef<str>) -> String {
     s.as_ref()
         .replace('&', "&amp;")
@@ -386,6 +511,7 @@ exec "$exo_native" --remote "$exo_remote" --cd "$(pwd -P)" "$@"
             0o600,
         )?;
     }
+    repair_path(&mut installation)?;
     if start {
         services(&installation, true)?;
         trust(&installation)?;
@@ -424,6 +550,20 @@ fn uninstall(installation: &Installation, start: bool) -> Result<()> {
             } else {
                 fs::remove_file(&file.path)?;
             }
+        } else if [
+            installation.home.join(".zprofile"),
+            installation.home.join(".zshrc"),
+        ]
+        .contains(&file.path)
+        {
+            // Remove only our exact block when the user has edited the rest of the file.
+            let current = fs::read_to_string(&file.path)?;
+            let cleaned = current.replace(&path_block(&installation.home), "");
+            write(
+                &file.path,
+                cleaned.as_bytes(),
+                fs::metadata(&file.path)?.permissions().mode(),
+            )?;
         } else {
             eprintln!("Preserving edited file {}", file.path.display());
         }
@@ -444,7 +584,7 @@ fn run() -> Result<()> {
     let args: Vec<_> = std::env::args().skip(1).collect();
     if args.is_empty() || args.first().is_some_and(|a| a == "help" || a == "--help") {
         println!(
-            "exo-install install --home DIR --codex ABSOLUTE_PATH [--no-start]\nexo-install status|start|stop|trust|uninstall --home DIR [--no-start]\nmacOS personal directory-scoped trial. install requires all four compiled binaries alongside this executable. --no-start prepares isolated fixtures without touching launchd. Uninstall preserves the SQLite store. Existing hook/configuration entries are preserved; only the installed hook definitions are trusted."
+            "exo-install install --home DIR --codex ABSOLUTE_PATH [--no-start]\nexo-install status|start|stop|trust|repair-path|check-routing|uninstall --home DIR [--no-start]\nmacOS personal directory-scoped trial. install requires all four compiled binaries alongside this executable. --no-start prepares isolated fixtures without touching launchd. Uninstall preserves the SQLite store. Existing hook/configuration entries are preserved; only the installed hook definitions are trusted."
         );
         return Ok(());
     }
@@ -490,10 +630,12 @@ fn run() -> Result<()> {
             start,
         );
     }
-    let installation: Installation = serde_json::from_slice(&fs::read(
+    let mut installation: Installation = serde_json::from_slice(&fs::read(
         home.join(".local/share/exomemory/installation.json"),
     )?)?;
     match operation.as_str() {
+        "repair-path" => repair_path(&mut installation)?,
+        "check-routing" => check_routing(&installation)?,
         "trust" => trust(&installation)?,
         "start" => {
             services(&installation, true)?;
@@ -502,6 +644,7 @@ fn run() -> Result<()> {
         "stop" => services(&installation, false)?,
         "uninstall" => uninstall(&installation, start)?,
         "status" => {
+            check_routing(&installation)?;
             println!(
                 "Store: {}\nPermitted directories: {}",
                 installation.runtime.display(),

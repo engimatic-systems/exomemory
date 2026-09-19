@@ -14,9 +14,10 @@ target/release/exo-install install --home /absolute/user/home --codex /absolute/
 ```
 
 The native Codex path must point to the original executable, not the installed
-launcher. The install puts launchers in `~/.local/bin`, which must precede the
-native executable on PATH. Open a new terminal or run `rehash` in an existing
-zsh after installation. From any project beneath the home directory, run
+launcher. The install puts launchers in `~/.local/bin` and appends marked PATH
+blocks to `.zprofile` and `.zshrc`, after Homebrew and other existing shell setup.
+Open a new terminal after installation; in an existing zsh, run
+`source ~/.zshrc` followed by `rehash`. From any project beneath the home directory, run
 `codex` as usual. The launcher passes the current directory explicitly to the
 local host unless `--cd`/`-C` was supplied.
 
@@ -59,14 +60,25 @@ The host insertion path and hooks follow the official
 
 ```sh
 exomemory status
+exomemory repair-path
 exomemory stop
 exomemory start
 exomemory uninstall
 ```
 
-Status checks both services and installed hook trust. Stop unloads the two
+Status checks the inherited PATH and a fresh interactive login shell before
+checking services and hook trust. A native Codex path, alias override or missing
+launcher makes it fail with an actionable diagnostic. `repair-path` repairs
+older installations or moves the owned blocks after later shell setup; repeating
+it does not duplicate the blocks. Custom ZDOTDIR setups are checked but need their
+startup files configured explicitly. Unhosted SessionStart hooks now report
+inactive recall on stderr, while remaining successful and injecting no context.
+
+Stop unloads the two
 LaunchAgents; start loads them again. Uninstall stops the services, removes only
-the installed hook handlers, restores preexisting launcher/service files when
+the installed hook handlers, removes owned PATH blocks while preserving later
+user edits, and restores preexisting
+launcher/service files when
 unchanged, and preserves user edits. Stored memories and backups remain in the
 private runtime. Unreferenced hook hash entries may remain in Codex configuration;
 they do not trust different future definitions. Reinstall after uninstall reuses
@@ -88,3 +100,8 @@ retrieve an unsolicited preview through the installed CLI. The initial passing
 run was `tests/.runtime/rc7197bc7335c`; its evidence is
 `harness/installed-evidence.json`. The temporary authentication copy is removed
 on completion. Existing app-server compaction tests cover the same adapter loop.
+
+The login-shell regression in `tests/install.rs` reproduces Homebrew preceding
+the launcher after `.zshenv`, checks status even when its inherited PATH looks
+correct, verifies that `codex` actually receives the local `--remote` arguments
+from a fresh shell, repairs a legacy manifest, and tests idempotence/uninstall.
