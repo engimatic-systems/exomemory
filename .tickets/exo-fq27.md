@@ -33,3 +33,13 @@ exo-fsde is the explicitly deferred expansion backlog after this SQLite acceptan
 ## Definitions
 
 Harness: the program that hosts the model, tools, and conversation context. Compaction: a harness operation that replaces or removes earlier context. Acceptance gate: the checks required before calling the increment complete.
+
+## Notes
+
+**2026-09-19T15:24:36Z**
+
+M3 SQLite acceptance achieved under the explicitly approved best-effort attempt policy. Real Codex 0.155.1/GPT 5.6 Luna acceptance, M2, process recovery and final verification gate all pass; exo-a81g and prerequisites closed. Versioned evidence and repeatable commands are in verification/SQLITE-ACCEPTANCE.md. Broader backend/workflow expansion remains exo-fsde.
+
+**2026-09-19T15:25:49Z**
+
+Reopened after GitHub rejected workflow publication for missing PAT workflow scope. Implementation, recovery, local gate and real Luna acceptance are complete; CI activation remains a concrete human prerequisite tracked by exo-a81g. No new product-design decision is needed.

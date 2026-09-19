@@ -1,8 +1,8 @@
 # Spec-to-ticket coverage
 
-This is a planning map, not evidence that the implementation passes these
-requirements. All tickets are open when this map is introduced. The SQLite
-gate is [exo-a81g](../.tickets/exo-a81g.md); full-spec acceptance is
+This map assigns requirements to tickets; it is not itself verification evidence.
+The SQLite implementation evidence is in [SQLITE-ACCEPTANCE.md](SQLITE-ACCEPTANCE.md).
+The SQLite gate is [exo-a81g](../.tickets/exo-a81g.md); full-spec acceptance is
 [exo-1izl](../.tickets/exo-1izl.md). Those tickets will attach executable evidence.
 
 ## Service, command, and storage requirements

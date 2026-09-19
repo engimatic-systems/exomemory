@@ -10,8 +10,9 @@ Application and real Luna checks: [Codex acceptance](CODEX-ACCEPTANCE.md).
 
 The follow-up [host contract investigation](CODEX-HOST-CONTRACT.md) adds an
 executable negative capability check, specifies the required host extension,
-and records the host-distribution decision needed for exo-adfe. Exact presence
-remains unsupported; exo-7pi0, exo-dcwx, and M3 remain incomplete.
+and records the historical host-distribution decision for exo-adfe (now superseded).
+At that stage exact presence was unsupported and the adapter was incomplete.
+Current best-effort acceptance is recorded in the notes linked above.
 
 Tested 2026-09-19 with installed `codex-cli 0.155.1` on macOS arm64.
 Run `cargo run --manifest-path tests/probes/codex/Cargo.toml --target-dir target/probes`.
