@@ -1,6 +1,6 @@
 ---
 id: exo-h2bg
-status: open
+status: closed
 deps: [exo-sjlw]
 links: []
 created: 2026-09-19T03:37:24Z
@@ -36,3 +36,9 @@ exo-jtv5 consumes the ledger and remaining slots. exo-lm9g exercises the full co
 ## Definitions
 
 Ledger: the authoritative set of ghosts currently present in context. Occurrence identifier: the identity of one accepted insertion. Cooldown: a minimum event interval before resurfacing. Presence version: a change counter that detects a stale context view. Acknowledgment: confirmation that the harness accepted a delivery.
+
+## Notes
+
+**2026-09-19T04:28:53Z**
+
+Implemented the controlled harness authoritative live context as transactional SQLite live items, with per-context presence versions, per-session logical event/cooldown state and exact idempotent receipts. Only accepted delivery changes last-shown state. Compaction validates actual retained occurrence IDs. Tests cover rejection, accepted retry, replay after compaction, retained/removed occurrences, cooldown, simultaneous stale views, independent sessions/child contexts, atomic batch failure, reopen and tenant binding. Formatting, clippy -D warnings and four presence tests pass.
