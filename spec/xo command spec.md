@@ -1,0 +1,11 @@
+The `xo` command is the model's POSIX-compliant data control plane. It gives the model:
+- a help page.
+- `xo list-trigger-types` gives an up-to-date list of the available trigger types, which may include simple regex type triggers, specially designated regex triggers like "date", vector similarity, etc.
+- limited access to create new triggers into the Exo memory. `xo create [<data>] <description> <triggers-and-params> <backend-and-params>` creates a non-empty set of triggers and hashes it. the model must also specify which backend should be used to store the data, if applicable. the model can optionally set data to be overwritable so that any agent can modify it across any session.  some backends are retrieval-only and so data will not always be required. Triggers are explicitly scoped, along filesystem boundaries: either "global" so that they run for sessions in all folders, or "dir" so that they run for sessions recursively inside a specific set of folders.
+- full acces to overwrite a trigger: `xo overwrite <ghost_key>`
+- full data read access:  calling `xo <ghost_key>` returns the data through stdout.
+- full metadata read access: `xo meta <ghost_key>` gives all metadata, including that which is excluded from the ghost.
+- `xo annoy` raises the threshold for surfacing the ghost. note that this does not change whether the trigger fires; the trigger is deterministic. What it changes is the relevant filter for the retrieved ghost to be injected into the context window. By default, the filtering mechanism is a random chance set to 100% chance of the trigger "surfacing" the ghost. But backends can override that with a special filtering mechanism. For example, vector similarity results may need their threshold tuned. So if the model decides that the ghost was not relevant for the session, the annoy command will apply an annealing function to raise the threshold so it is less likely to appear. The agent never chooses a threshold value directly. By default, annealing is applied to the random chance of "surfacing".
+-  any other information that the model needs to read and write data effectively is also included. 
+
+ The `xo` command directly queries the data access service daemon.

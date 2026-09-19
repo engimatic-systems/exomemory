@@ -1,0 +1,8 @@
+Here's a list of use cases in which Exomemory could be useful. 
+
+- The user says, remember to always use TypeScript when making frontends. The model uses `xo` to log that memory and make it trigger whenever the word frontend or UX is used. And this stores the memory of a simple text line into SQL or perhaps Redis, which is then retrieved when another agent session tries to think about writing a frontend.
+- The user says to always remember how long the test suite took so that in the future you can wait for the appropriate amount of time while the test suite finishes. The agent creates the memory as an overridable one so that in the future, another agent can override it with the new test suite time after adding a new feature and a new set of tests. This makes the agents remember what the test suite time was whenever they think about the test suite and they don't even have to retrieve the data because it fits inside the ghost.
+-  the user says, you should remember where my anthropology documents folder is whenever the topic of anthropology comes up. After the agent creates this trigger, the ghost advertises the relevant document folder when triggered by keywords. The agent then decides to leverage that information to `ls` and `grep` the folder.
+-  the user says, remember that experiments live outside of this repo, in the parent directory. The agent creates a brief memory that says exactly that. When instructed to do an experiment, the agent always knows where to put the experiment code.
+- the user says "Remember my birthday," and whenever that date appears, the memory is surfaced as a ghost. 
+- 
