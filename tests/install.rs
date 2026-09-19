@@ -181,3 +181,155 @@ fn installation_preserves_existing_configuration_and_uninstall_preserves_memorie
         record
     );
 }
+
+#[test]
+#[cfg(target_os = "macos")]
+fn login_shell_homebrew_order_is_repaired_detected_and_reversibly_managed() {
+    let run = Run::new();
+    let home = &run.scope;
+    let native_dir = home.join("brew/bin");
+    fs::create_dir_all(&native_dir).unwrap();
+    let native = native_dir.join("codex");
+    fs::write(&native, "#!/bin/sh\nif [ \"${1-}\" = --version ]; then echo 'codex-cli 0.155.1'; else printf '%s\n' \"$@\"; fi\n").unwrap();
+    fs::set_permissions(&native, fs::Permissions::from_mode(0o700)).unwrap();
+    let original_profile = format!(
+        "# Homebrew shellenv prepends this directory after .zshenv.\nexport PATH='{}':\"$PATH\"\n",
+        native_dir.display()
+    );
+    fs::write(
+        home.join(".zshenv"),
+        format!(
+            "export PATH='{}':\"$PATH\"\n",
+            home.join(".local/bin").display()
+        ),
+    )
+    .unwrap();
+    fs::write(home.join(".zprofile"), &original_profile).unwrap();
+    fs::write(home.join(".zshrc"), "# existing interactive setup\n").unwrap();
+    let result = installer(home, "install", &["--codex", native.to_str().unwrap()]);
+    assert!(
+        result.status.success(),
+        "{}",
+        String::from_utf8_lossy(&result.stderr)
+    );
+    let correct_path = format!(
+        "{}:{}:/usr/bin:/bin",
+        home.join(".local/bin").display(),
+        native_dir.display()
+    );
+    let check = |operation: &str, path: &str| {
+        Command::new(env!("CARGO_BIN_EXE_exo-install"))
+            .args([operation, "--home", home.to_str().unwrap(), "--no-start"])
+            .env("PATH", path)
+            .env("ZDOTDIR", home)
+            .output()
+            .unwrap()
+    };
+    assert!(check("check-routing", &correct_path).status.success());
+    // Reconstruct the old installation: healthy launcher PATH in this process, broken new terminals.
+    fs::write(home.join(".zprofile"), &original_profile).unwrap();
+    fs::write(home.join(".zshrc"), "# existing interactive setup\n").unwrap();
+    let manifest = home.join(".local/share/exomemory/installation.json");
+    let mut saved: serde_json::Value =
+        serde_json::from_slice(&fs::read(&manifest).unwrap()).unwrap();
+    saved["files"].as_array_mut().unwrap().retain(|f| {
+        ![home.join(".zprofile"), home.join(".zshrc")]
+            .iter()
+            .any(|p| f["path"] == p.to_str().unwrap())
+    });
+    fs::write(&manifest, serde_json::to_vec(&saved).unwrap()).unwrap();
+    let broken = check("status", &correct_path);
+    assert_eq!(broken.status.code(), Some(3));
+    let error = String::from_utf8_lossy(&broken.stderr);
+    assert!(error.contains("fresh login shell selects"), "{error}");
+    assert!(error.contains(native.to_str().unwrap()));
+    for _ in 0..2 {
+        let repair = installer(home, "repair-path", &[]);
+        assert!(
+            repair.status.success(),
+            "{}",
+            String::from_utf8_lossy(&repair.stderr)
+        );
+    }
+    for name in [".zprofile", ".zshrc"] {
+        assert_eq!(
+            fs::read_to_string(home.join(name))
+                .unwrap()
+                .matches("# >>> Exomemory PATH >>>")
+                .count(),
+            1
+        );
+    }
+    assert!(check("check-routing", &correct_path).status.success());
+    let wrong_path = format!(
+        "{}:{}:/usr/bin:/bin",
+        native_dir.display(),
+        home.join(".local/bin").display()
+    );
+    let wrong = check("status", &wrong_path);
+    assert_eq!(wrong.status.code(), Some(3));
+    assert!(String::from_utf8_lossy(&wrong.stderr).contains("PATH selects"));
+    let interactive = Command::new("/bin/zsh")
+        .args(["-ic", "command -v codex"])
+        .env("ZDOTDIR", home)
+        .env("PATH", &wrong_path)
+        .output()
+        .unwrap();
+    assert_eq!(
+        String::from_utf8_lossy(&interactive.stdout).trim(),
+        home.join(".local/bin/codex").to_str().unwrap()
+    );
+    let routed = Command::new("/bin/zsh")
+        .args(["-lic", "codex fixture-prompt"])
+        .env("ZDOTDIR", home)
+        .env("PATH", &wrong_path)
+        .current_dir(home)
+        .output()
+        .unwrap();
+    let arguments = String::from_utf8_lossy(&routed.stdout);
+    assert!(arguments.starts_with("--remote\nunix://"), "{arguments}");
+    assert!(
+        arguments.contains(
+            home.join(".local/share/exomemory/codex.sock")
+                .to_str()
+                .unwrap()
+        )
+    );
+    // A later user edit must survive removal of just the installer-owned block.
+    let path = home.join(".zprofile");
+    let mut text = fs::read_to_string(&path).unwrap();
+    text.push_str("# later user setting\n");
+    fs::write(&path, text).unwrap();
+    assert!(installer(home, "uninstall", &[]).status.success());
+    assert_eq!(
+        fs::read_to_string(path).unwrap(),
+        format!("{original_profile}# later user setting\n")
+    );
+    assert_eq!(
+        fs::read_to_string(home.join(".zshrc")).unwrap(),
+        "# existing interactive setup\n"
+    );
+}
+
+#[test]
+fn unhosted_startup_reports_inactive_recall_without_blocking_or_injecting() {
+    use std::io::Write;
+    let mut child = Command::new(env!("CARGO_BIN_EXE_exo-codex-hook"))
+        .arg("--env")
+        .env_remove("EXOMEMORY_HOOK_CONFIG")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(br#"{"hook_event_name":"SessionStart"}"#)
+        .unwrap();
+    let output = child.wait_with_output().unwrap();
+    assert!(output.status.success());
+    assert_eq!(String::from_utf8_lossy(&output.stdout).trim(), "{}");
+    assert!(String::from_utf8_lossy(&output.stderr).contains("recall is inactive"));
+}
