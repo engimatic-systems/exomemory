@@ -12,7 +12,7 @@ fn deterministic_parameterized_snapshot_candidates_and_scope() {
     });
     let first = db.create(&run.policy, &run.context, input).unwrap();
     db.create(&run.policy, &run.context, draft(&run)).unwrap();
-    let query = event(&run, 1, 0);
+    let query = event(&run, 1);
     let expected = db.candidates(&run.policy, &query).unwrap();
     assert_eq!(expected.state_version, 2);
     assert_eq!(expected.candidates.len(), 3);
@@ -70,7 +70,7 @@ fn normalization_and_rollback_never_advertise_partial_records() {
     inspector.execute_batch("CREATE TRIGGER fail BEFORE INSERT ON triggers BEGIN SELECT RAISE(ABORT,'failure'); END;").unwrap();
     assert!(db.create(&run.policy, &run.context, draft(&run)).is_err());
     assert!(
-        db.candidates(&run.policy, &event(&run, 1, 0))
+        db.candidates(&run.policy, &event(&run, 1))
             .unwrap()
             .candidates
             .is_empty()
@@ -82,7 +82,7 @@ fn normalization_and_rollback_never_advertise_partial_records() {
         pattern: "first\\nsecond".into(),
     }];
     db.create(&run.policy, &run.context, input).unwrap();
-    let mut query = event(&run, 1, 0);
+    let mut query = event(&run, 1);
     query.text = "first\r\nsecond".into();
     let expected = db.candidates(&run.policy, &query).unwrap();
     assert_eq!(expected.candidates.len(), 1);

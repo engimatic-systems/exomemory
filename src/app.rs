@@ -1,11 +1,11 @@
 use crate::{
-    harness::Presence,
+    attempts::AttemptState,
     policy::Policy,
     render::{Bounds, RenderedGhost, render},
     types::*,
 };
 use std::{collections::BTreeMap, path::Path};
-/// Ascending lexicographic order, exactly as specified. Never shown uses event 0;
+/// Ascending lexicographic order, exactly as specified. Never attempted uses event 0;
 /// valid logical events start at 1. Source is only a final duplicate tie-break.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Ranking {
@@ -13,11 +13,11 @@ pub struct Ranking {
     pub scope_distance: usize,
     pub penalty: u32,
     pub backend_rank: u64,
-    pub last_shown: u64,
+    pub last_attempted: u64,
     pub ghost_key: String,
     pub source: SourceId,
 }
-pub fn ranking(candidate: &Candidate, cwd: &Path, last_shown: u64) -> Result<Ranking> {
+pub fn ranking(candidate: &Candidate, cwd: &Path, last_attempted: u64) -> Result<Ranking> {
     let scope_distance = match &candidate.scope {
         Scope::Global => usize::MAX,
         Scope::Dir { root } => {
@@ -34,7 +34,7 @@ pub fn ranking(candidate: &Candidate, cwd: &Path, last_shown: u64) -> Result<Ran
         scope_distance,
         penalty: candidate.penalty,
         backend_rank: candidate.backend_rank,
-        last_shown,
+        last_attempted,
         ghost_key: candidate.ghost.ghost_key.clone(),
         source: candidate.ghost.source_id.clone(),
     })
@@ -43,27 +43,24 @@ pub fn select(
     policy: &Policy,
     event: &Event,
     snapshot: &CandidateSnapshot,
-    presence: &Presence,
+    state: &AttemptState,
     bounds: &Bounds,
 ) -> Result<Vec<RenderedGhost>> {
     bounds.validate()?;
     policy.context(&event.context)?;
-    if event.presence_version != presence.version
-        || event.number <= presence.last_event
-        || event.live_context.is_empty()
-    {
+    if event.number <= state.last_event || event.context_id.is_empty() {
         return Err(Error::new(
             ErrorCode::Conflict,
-            "selection has stale presence or event identity",
+            "selection has stale event identity",
         ));
     }
     let remaining = bounds
-        .max_live
-        .checked_sub(presence.live.len())
+        .max_attempts
+        .checked_sub(state.attempted.len())
         .ok_or_else(|| {
             Error::new(
                 ErrorCode::Conflict,
-                "authoritative context already exceeds count bound",
+                "attempt set already exceeds interval bound",
             )
         })?;
     let mut unique = BTreeMap::<String, (Ranking, RenderedGhost)>::new();
@@ -71,19 +68,18 @@ pub fn select(
         if policy
             .access(&event.context, &candidate.tenant, &candidate.scope)
             .is_err()
-            || presence
-                .live
-                .values()
-                .any(|key| key == &candidate.ghost.ghost_key)
+            || state.attempted.contains(&candidate.ghost.ghost_key)
         {
             continue;
         }
-        let shown = presence.last_shown.get(&candidate.ghost.ghost_key).copied();
+        let shown = state
+            .last_attempted
+            .get(&candidate.ghost.ghost_key)
+            .copied();
         if shown.is_some_and(|n| event.number.saturating_sub(n) < bounds.cooldown_events) {
             continue;
         }
-        let occurrence = format!("{}:{}", event.number, candidate.ghost.ghost_key);
-        let Ok(rendered) = render(&candidate.ghost, &occurrence, bounds) else {
+        let Ok(rendered) = render(&candidate.ghost, bounds) else {
             continue;
         };
         let rank = ranking(candidate, &event.context.cwd, shown.unwrap_or(0))?;

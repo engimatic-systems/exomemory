@@ -1,5 +1,10 @@
 # Codex host contract gap — 0.155.1
 
+> Historical exact-presence investigation. On 2026-09-19 the user approved
+> best-effort attempts with reset after completed compaction. The missing
+> presence interface below no longer blocks M3 and no Codex fork is required
+> for that reason. Current contract: [attempt suppression](ATTEMPT-SUPPRESSION.md).
+
 ## Decision and repeatable evidence
 
 Exact-presence integration remains unsupported by the demonstrated Codex

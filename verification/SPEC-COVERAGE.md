@@ -44,9 +44,9 @@ Source: `spec/App server spec.md`; finalized decisions:
 | Escaping, trusted wrapper, untrusted fields, separate full tool reads | [exo-aqd9](../.tickets/exo-aqd9.md), [exo-ljge](../.tickets/exo-ljge.md), [exo-dcwx](../.tickets/exo-dcwx.md) |
 | Final serialized size limits, rejection instead of truncation, fixed wrapper bound | [exo-aqd9](../.tickets/exo-aqd9.md) |
 | Eligibility before duplicate collapse, exact lexicographic order | [exo-jtv5](../.tickets/exo-jtv5.md) |
-| Per-source limits after duplicate collapse and remaining live-slot cap | [exo-jtv5](../.tickets/exo-jtv5.md), [exo-h2bg](../.tickets/exo-h2bg.md) |
-| Authoritative occurrences, accepted delivery, compaction and resurfacing | [exo-h2bg](../.tickets/exo-h2bg.md), [exo-dcwx](../.tickets/exo-dcwx.md) |
-| Logical-event cooldown and last-shown bookkeeping | [exo-h2bg](../.tickets/exo-h2bg.md), [exo-jtv5](../.tickets/exo-jtv5.md) |
+| Per-source limits after duplicate collapse and remaining attempt cap per compaction interval | [exo-jtv5](../.tickets/exo-jtv5.md), [exo-h2bg](../.tickets/exo-h2bg.md) |
+| Atomic attempt suppression, no retry, completed-compaction reset and resurfacing | [exo-0wuy](../.tickets/exo-0wuy.md), [exo-dcwx](../.tickets/exo-dcwx.md) |
+| Logical-event cooldown and last-attempt bookkeeping | [exo-h2bg](../.tickets/exo-h2bg.md), [exo-jtv5](../.tickets/exo-jtv5.md) |
 | All named Codex event classes scanned before continuation | [exo-a6l7](../.tickets/exo-a6l7.md) discovery, [exo-dcwx](../.tickets/exo-dcwx.md) implementation |
 | Repeatable decisions from versioned state across backends | [exo-u1mp](../.tickets/exo-u1mp.md), [exo-1izl](../.tickets/exo-1izl.md) |
 

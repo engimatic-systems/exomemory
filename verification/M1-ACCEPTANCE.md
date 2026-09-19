@@ -1,5 +1,10 @@
 # M1 controlled SQLite acceptance
 
+Updated delivery contract: `cargo test --test m1 -- --nocapture` now checks
+attempt-before-send, suppression, completed-compaction reset, and resurfacing.
+Older occurrence/receipt descriptions below record the original M1 run and
+are superseded by [attempt suppression](ATTEMPT-SUPPRESSION.md).
+
 Verified 2026-09-19 on macOS arm64, Rust 1.98.0, bundled rusqlite 0.40.2.
 This establishes exo-5iw6 and exo-lm9g with the controlled Rust host. It does
 not establish M2 overwrite/feedback or real Codex M3 acceptance.

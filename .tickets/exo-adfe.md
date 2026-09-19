@@ -1,6 +1,6 @@
 ---
 id: exo-adfe
-status: open
+status: closed
 deps: []
 links: []
 created: 2026-09-19T14:19:40Z
@@ -59,3 +59,9 @@ prevents stale requests from an earlier context instance being accepted.
 Barrier: a point where the host waits before continuing. Fork: either a
 maintained source variant or a child conversation, as specified by context.
 Capability negotiation: checking that the host supplies every required interface.
+
+## Notes
+
+**2026-09-19T14:39:34Z**
+
+Superseded by explicit user approval on 2026-09-19. Best-effort attempts and completed-compaction reset replace exact host presence; no patched host distribution is required for this contract. Closed as obsolete, not implemented. Replacement implementation: exo-0wuy; ordinary hook verification: exo-7pi0.

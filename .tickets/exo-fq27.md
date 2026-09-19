@@ -13,14 +13,14 @@ tags: [roadmap, m3, sqlite, codex]
 
 ## Background in Plain English — WHY
 
-A controlled harness proves the application logic, but real use also requires the host to report which ghosts remain in context. This milestone joins real integration, recovery checks, and the finalized verification contracts into a SQLite acceptance gate. Sources: spec/App server spec.md and verification/RESULTS.md.
+A controlled harness proves the application logic, but real use also requires verified preview delivery and completed-compaction reset hooks. This milestone joins real integration, recovery checks, and the finalized verification contracts into a SQLite acceptance gate. Sources: spec/App server spec.md and verification/RESULTS.md.
 
 ## Outcomes / Acceptance Criteria — WHAT
 
-1. A supported Codex integration demonstrates live ghost delivery, separate full-record reads, and accurate compaction reporting inside the test folder.
+1. A supported Codex integration demonstrates live ghost delivery, separate full-record reads, and completed-compaction reset inside the test folder.
 2. Storage and delivery remain correct under the failure and concurrency cases in exo-fr7t.
 3. The acceptance checks in exo-a81g pass and identify the tested harness version and remaining product limitations.
-4. The milestone remains open if the real harness cannot satisfy authoritative context reporting.
+4. The milestone remains open until real-host delivery and completed-compaction reset are verified. Missed previews and repetition across compactions are accepted; exact live presence is not required.
 
 ## Methodological Suggestions — HOW
 

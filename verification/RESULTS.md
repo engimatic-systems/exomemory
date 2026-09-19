@@ -1,5 +1,10 @@
 # Model-checking results
 
+The 2026-09-19 user-approved attempt policy supersedes the exact-presence
+acceptance claims below. The older models remain historical checks and still
+run unchanged. `AttemptSuppression.tla` checks the new attempt/reset policy;
+see [attempt suppression](ATTEMPT-SUPPRESSION.md). Neither proves Rust behavior.
+
 Checked on 2026-09-18 with TLC 2.19 from the official TLA+ tools v1.7.4.
 
 ## Outcome

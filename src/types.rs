@@ -177,16 +177,16 @@ pub enum EventKind {
     SessionEnd,
     SubagentStart,
     SubagentEnd,
-    Compaction,
+    CompactionStarted,
+    CompactionCompleted,
     TurnComplete,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Event {
     pub context: Context,
-    pub live_context: String,
+    pub context_id: String,
     pub number: u64,
-    pub presence_version: u64,
     pub kind: EventKind,
     pub text: String,
 }

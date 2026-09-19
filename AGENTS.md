@@ -9,7 +9,8 @@ transactions for this slice.
 
 Read the relevant files in `spec/` before implementing a ticket. The finalized
 contracts are recorded in `verification/DECISIONS.md` and `verification/RESULTS.md`.
-The historical counterexamples describe rejected behavior. The finite models
+The historical counterexamples describe behavior rejected by the original contract;
+the approved best-effort attempt policy supersedes their exact-presence requirements. The finite models
 are useful checks, not proof of the Rust implementation. In particular, use
 the exact lexicographic ranking in `spec/App server spec.md`; the selection
 model's effective-rank arithmetic is an abstraction of a narrower scenario.
@@ -51,8 +52,8 @@ The reviewable increments are:
    running daemon, exoctl, SQLite, and a controlled Rust harness.
 2. [M2: conditional updates and feedback](.tickets/exo-190g.md), demonstrated
    across concurrent test sessions.
-3. [M3: real Codex acceptance](.tickets/exo-fq27.md), including exact live
-   presence reporting, failure recovery, and verification evidence.
+3. [M3: real Codex acceptance](.tickets/exo-fq27.md), including best-effort delivery and
+   completed-compaction reset, failure recovery, and verification evidence.
 
 [Remaining specified backends and workflows](.tickets/exo-fsde.md) have
 concrete dependent tickets. Non-SQLite implementation follows SQLite
@@ -91,15 +92,15 @@ small fixtures, and verification sources version-controlled. Inspect
 - Publish complete revisions atomically; never advertise incomplete data.
 - Use compare-and-swap for overwrite and report stale revisions explicitly.
 - Select deterministically with the specified ordering and per-source limits.
-- Consult authoritative live context for deduplication and compaction;
-  cooldown is only rate limiting.
-- Bound final serialized ghost size, live count, and wrapper overhead.
+- Atomically mark preview attempts before sending once; suppress repeated keys
+  until completed compaction clears that context. Do not retry failed delivery.
+- Bound final serialized ghost size, attempts per compaction interval, and wrapper overhead.
 - Keep escaped retrieved fields as untrusted data with provenance; return
   complete records through tool output.
 
 The controlled harness must exercise these contracts from M1. Real Codex
 support remains unverified until the discovery and adapter tickets supply
-version-specific evidence; unavailable context reporting is a tracked gap.
+version-specific evidence for hooks, delivery, and completed-compaction reset.
 
 Once the Rust workspace exists, run formatting, linting, and relevant tests
 using its recorded commands. The existing model checks run with
@@ -137,10 +138,12 @@ The complete controlled-harness M1 demo is
 `cargo test --test m1 -- --nocapture`. This single command starts an isolated
 SQLite daemon, creates the test-duration fixture through exoctl, queries
 candidates over its socket, accepts a bounded ghost, reads full data and
-metadata through exoctl, suppresses a live duplicate after cooldown, compacts
-it away, and surfaces it again. It also sends direct outside-scope requests.
+metadata through exoctl, suppresses another attempt after cooldown, resets
+on completed compaction, and surfaces it again. It also sends direct outside-scope requests.
 The printed run directory holds daemon logs, database/journals and
-`harness/m1-evidence.json`; live occurrences, receipts and logical events are
-canonical in `harness/context.sqlite`. This is a controlled host, not real
-Codex acceptance. Events are positive, strictly increasing per session;
-child live contexts share that session clock and cooldown history.
+`harness/m1-evidence.json`; attempted keys and logical events are canonical in
+`harness/context.sqlite`. This is a controlled receiver, not real Codex acceptance.
+Events are positive, strictly increasing per session; child contexts share
+that clock and cooldown history but have separate attempt sets. Failed sends
+remain marked. Completion resets only the affected context, without predicting
+which previews Codex retained. See `verification/ATTEMPT-SUPPRESSION.md`.

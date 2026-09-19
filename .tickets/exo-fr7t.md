@@ -14,14 +14,14 @@ tags: [m3, sqlite, reliability]
 
 ## Background in Plain English — WHY
 
-Transactions and context ledgers must remain correct when processes fail or requests overlap. The normal demonstrations do not cover all interruption points that can expose partial state or duplicate ghosts. Sources: verification/RESULTS.md and spec/data service.md.
+Transactions and attempt sets must remain correct when processes fail or requests overlap. The normal demonstrations do not cover all interruption points that can expose partial state or duplicate ghosts. Sources: verification/RESULTS.md and spec/data service.md.
 
 ## Outcomes / Acceptance Criteria — WHAT
 
 1. Process-interruption tests around create and overwrite commits recover to either complete old or complete new state, with no dangling trigger or mixed revision.
 2. Parallel reads, creates, overwrites, and feedback have documented bounded busy handling and preserve accepted state without silent lost updates.
 3. Connection loss after a commit has explicit client behavior for an uncertain result, and retry behavior cannot be mistaken for proof that a previous write failed.
-4. Delivery failure, stale ledger versions, duplicate events, and restart require authoritative presence synchronization before more ghosts can be accepted.
+4. Delivery failure and restart preserve attempted keys without retry. Duplicate or stale events cannot resend a preview or clear newer attempts. Concurrent selection cannot exceed the attempt cap between completed compactions.
 5. Service startup, shutdown, and stale endpoint handling are deterministic and confined to test runtime paths.
 6. Focused tests exercise the identified failure boundaries, with reproducible seeds or schedules and compact failure artifacts.
 

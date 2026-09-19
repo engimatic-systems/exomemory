@@ -18,8 +18,8 @@ The finite models found useful failure cases, but they do not prove Rust code, f
 
 ## Outcomes / Acceptance Criteria — WHAT
 
-1. A compact verification matrix maps atomic create, same-version body and ghost, stale-write rejection, live deduplication, post-compaction eligibility, authority boundaries, count and byte bounds, deterministic selection, and source diversity to named Rust tests.
-2. The matrix separately maps directory containment, feedback attribution, daemon recovery, and actual Codex presence reporting to implementation or integration evidence.
+1. A compact verification matrix maps atomic create, same-version body and ghost, stale-write rejection, attempt suppression, post-compaction eligibility, authority boundaries, count and byte bounds, deterministic selection, and source diversity to named Rust tests.
+2. The matrix separately maps directory containment, feedback attribution, daemon recovery, and actual Codex delivery and completed-compaction reset to implementation or integration evidence.
 3. Automated checks run Rust formatting, linting, component and integration tests, plus verification/run-models.sh with its expected counterexamples and passing finalized models.
 4. The actual prose lexicographic order is explicitly tested; the narrower effective-rank abstraction in GhostSelection.tla is documented in a non-README note or the matrix.
 5. A reviewer can repeat both milestone demos and the real-harness test using recorded commands and versions; any host-dependent manual check is distinguished from automated coverage.
