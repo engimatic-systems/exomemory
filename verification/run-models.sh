@@ -73,6 +73,7 @@ run_case Current_Budget.cfg counterexample WithinGhostBudget
 run_case Current_Authority.cfg counterexample NoUntrustedDeveloperContext
 run_case Current_CAS.cfg counterexample NoStaleWriterCommit
 run_case Hardened.cfg safe
+run_case Attempt_Suppression.cfg safe "" AttemptSuppression.tla
 run_case Current_RandomSurfacing.cfg counterexample AlwaysSelectedTopRanked GhostSelection.tla
 run_case Finalized_Selection.cfg safe "" GhostSelection.tla
 

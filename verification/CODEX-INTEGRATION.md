@@ -1,5 +1,10 @@
 # Codex integration decision — 0.155.1
 
+> Historical exact-presence investigation. On 2026-09-19 the user approved
+> best-effort attempts with reset after completed compaction. The missing
+> presence interface below no longer blocks M3 and no Codex fork is required
+> for that reason. Current contract: [attempt suppression](ATTEMPT-SUPPRESSION.md).
+
 The follow-up [host contract investigation](CODEX-HOST-CONTRACT.md) adds an
 executable negative capability check, specifies the required host extension,
 and records the host-distribution decision needed for exo-adfe. Exact presence

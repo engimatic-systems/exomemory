@@ -18,8 +18,8 @@ The system's correctness depends on five cross-cutting contracts:
 
 - a memory becomes visible only as a complete, atomically published revision;
 - concurrent overwrite uses compare-and-swap rather than silent last-write-wins;
-- the harness reports which ghost occurrences are actually present in its live context, including after compaction;
-- every live context has a maximum ghost count and every final rendered ghost has a hard size limit; and
+- the App Server records preview attempts before sending once and clears the affected set after completed compaction;
+- each context has a maximum attempt count between completed compactions and every final rendered ghost has a hard size limit; and
 - untrusted memory content never acquires developer-message authority merely because Exomemory retrieved it.
 
 The executable state-machine models and checked invariants live in [`verification/`](../verification/README.md).

@@ -1,10 +1,10 @@
 mod support;
 use exomemory::{
     app::{ranking, select},
-    harness::Presence,
+    attempts::AttemptState,
     types::*,
 };
-use std::collections::BTreeMap;
+
 use support::*;
 fn candidate(run: &Run, key: &str, source: &str) -> Candidate {
     let mut ghost = ghost(run);
@@ -21,19 +21,14 @@ fn candidate(run: &Run, key: &str, source: &str) -> Candidate {
         penalty: 0,
     }
 }
-fn empty() -> Presence {
-    Presence {
-        version: 0,
-        live: BTreeMap::new(),
-        last_shown: BTreeMap::new(),
-        last_event: 0,
-    }
+fn empty() -> AttemptState {
+    AttemptState::default()
 }
 fn keys(
     run: &Run,
     event: &Event,
     candidates: Vec<Candidate>,
-    presence: &Presence,
+    state: &AttemptState,
     config: &exomemory::render::Bounds,
 ) -> Vec<String> {
     select(
@@ -43,7 +38,7 @@ fn keys(
             state_version: 1,
             candidates,
         },
-        presence,
+        state,
         config,
     )
     .unwrap()
@@ -54,7 +49,7 @@ fn keys(
 #[test]
 fn every_lexicographic_field_and_never_shown_sentinel_have_specified_priority() {
     let run = Run::new();
-    let mut event = event(&run, 10, 0);
+    let mut event = event(&run, 10);
     let nested = run.scope.join("nested");
     std::fs::create_dir(&nested).unwrap();
     event.context.cwd = nested.clone();
@@ -65,10 +60,10 @@ fn every_lexicographic_field_and_never_shown_sentinel_have_specified_priority() 
     for field in 0..6 {
         let mut winner = b.clone();
         let mut loser = a.clone();
-        let mut presence = empty();
+        let mut state = empty();
         winner.penalty = 100;
         winner.backend_rank = 100;
-        presence.last_shown.insert("b".into(), 8);
+        state.last_attempted.insert("b".into(), 8);
         match field {
             0 => {
                 loser.relevance_band = 1;
@@ -93,13 +88,13 @@ fn every_lexicographic_field_and_never_shown_sentinel_have_specified_priority() 
             4 => {
                 winner.penalty = 0;
                 winner.backend_rank = 0;
-                presence.last_shown.clear();
-                presence.last_shown.insert("a".into(), 1);
+                state.last_attempted.clear();
+                state.last_attempted.insert("a".into(), 1);
             }
             5 => {
                 winner = a.clone();
                 loser = b.clone();
-                presence.last_shown.clear();
+                state.last_attempted.clear();
             }
             _ => unreachable!(),
         }
@@ -109,14 +104,14 @@ fn every_lexicographic_field_and_never_shown_sentinel_have_specified_priority() 
                 &run,
                 &event,
                 vec![loser.clone(), winner.clone()],
-                &presence,
+                &state,
                 &config
             )[0],
             expected,
             "field {field}"
         );
         assert_eq!(
-            keys(&run, &event, vec![winner, loser], &presence, &config)[0],
+            keys(&run, &event, vec![winner, loser], &state, &config)[0],
             expected
         );
     }
@@ -130,9 +125,9 @@ fn every_lexicographic_field_and_never_shown_sentinel_have_specified_priority() 
 #[test]
 fn eligibility_precedes_duplicate_collapse_and_source_quotas() {
     let run = Run::new();
-    let event = event(&run, 10, 0);
+    let event = event(&run, 10);
     let mut config = bounds();
-    config.max_live = 2;
+    config.max_attempts = 2;
     let a = candidate(&run, "a", "broad");
     let b = candidate(&run, "b", "broad");
     let c = candidate(&run, "c", "other");
@@ -164,31 +159,31 @@ fn eligibility_precedes_duplicate_collapse_and_source_quotas() {
     )
     .unwrap();
     assert_eq!(selection[0].ghost().source_id.trigger, "aaa");
-    let mut presence = empty();
-    presence.live.insert("old".into(), "a".into());
+    let mut state = empty();
+    state.attempted.insert("a".into());
     assert_eq!(
         keys(
             &run,
             &event,
             vec![a.clone(), b.clone(), c.clone()],
-            &presence,
+            &state,
             &config
         ),
         vec!["b"]
     );
-    presence.live.insert("old2".into(), "z".into());
-    assert!(keys(&run, &event, vec![b.clone(), c.clone()], &presence, &config).is_empty());
-    presence = empty();
-    presence.last_shown.insert("a".into(), 9);
+    state.attempted.insert("z".into());
+    assert!(keys(&run, &event, vec![b.clone(), c.clone()], &state, &config).is_empty());
+    state = empty();
+    state.last_attempted.insert("a".into(), 9);
     assert_eq!(
-        keys(&run, &event, vec![a, b, c], &presence, &config),
+        keys(&run, &event, vec![a, b, c], &state, &config),
         vec!["b", "c"]
     );
 }
 #[test]
-fn scope_trust_schema_and_stale_presence_are_rejected() {
+fn scope_trust_schema_and_stale_state_are_rejected() {
     let run = Run::new();
-    let event = event(&run, 1, 0);
+    let event = event(&run, 1);
     let mut inaccessible = candidate(&run, "a", "a");
     inaccessible.tenant = "other".into();
     let mut malformed = candidate(&run, "b", "b");
@@ -208,7 +203,7 @@ fn scope_trust_schema_and_stale_presence_are_rejected() {
     json["ghost"]["trust"] = "developer".into();
     assert!(serde_json::from_value::<Candidate>(json).is_err());
     let mut stale = empty();
-    stale.version = 1;
+    stale.last_event = 1;
     assert!(
         select(
             &run.policy,

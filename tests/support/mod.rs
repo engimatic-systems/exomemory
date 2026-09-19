@@ -160,22 +160,21 @@ pub fn ctl(
         serde_json::from_slice(&output.stdout).unwrap(),
     )
 }
-pub fn event(run: &Run, number: u64, presence_version: u64) -> Event {
+pub fn event(run: &Run, number: u64) -> Event {
     Event {
         context: run.context.clone(),
-        live_context: "main".into(),
+        context_id: "main".into(),
         number,
-        presence_version,
         kind: EventKind::Prompt,
         text: "Run the test suite".into(),
     }
 }
 pub fn bounds() -> exomemory::render::Bounds {
     exomemory::render::Bounds {
-        max_live: 3,
+        max_attempts: 3,
         max_ghost_bytes: 2048,
         max_wrapper_bytes: 512,
-        context_envelope_bytes: 8192,
+        interval_envelope_bytes: 8192,
         per_source: 1,
         cooldown_events: 2,
     }
