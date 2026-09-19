@@ -25,6 +25,8 @@ assume every ghost is sent in its own batch with a fresh wrapper. The conservati
 interval limit is `max_attempts * (max_ghost_bytes + max_wrapper_bytes)`.
 This does not bound all old previews that might remain in live model input.
 Rendering still rejects oversize or malformed ghosts without truncation.
+Final ghost bounds include JSON string escaping by the host RPC, and the Codex
+adapter checks request framing against the wrapper allowance before marking.
 
 Run `cargo test --test attempts`, `cargo test --test selection`,
 `cargo test --test rendering`, and `cargo test --test m1 -- --nocapture`.

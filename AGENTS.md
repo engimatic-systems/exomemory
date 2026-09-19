@@ -150,3 +150,11 @@ Events are positive, strictly increasing per session; child contexts share
 that clock and cooldown history but have separate attempt sets. Failed sends
 remain marked. Completion resets only the affected context, without predicting
 which previews Codex retained. See `verification/ATTEMPT-SUPPRESSION.md`.
+
+The opt-in real-host check is
+`cargo test --test codex_live -- --ignored --nocapture`. It uses installed Codex
+0.155.1 and GPT 5.6 Luna with existing authentication copied privately into the
+isolated run and removed afterward. It verifies unsolicited preview delivery,
+exoctl full reads, attempt suppression, PostCompact reset, and resurfacing.
+`verification/CODEX-ACCEPTANCE.md` records configuration, evidence, and limits.
+`cargo test --test codex_adapter` runs the offline adapter regression tests.

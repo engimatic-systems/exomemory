@@ -16,7 +16,7 @@ fn escaped_untrusted_fields_round_trip_and_exact_serialized_limit() {
     assert_eq!(parsed["data"]["blurb"], ghost.blurb);
     assert!(parsed["data"].get("body").is_none());
     assert_eq!(parsed["data"]["trust"], "untrusted");
-    bounds.max_ghost_bytes = rendered.serialized().len();
+    bounds.max_ghost_bytes = rendered.wire_bytes();
     assert!(render(&ghost, &bounds).is_ok());
     bounds.max_ghost_bytes -= 1;
     assert!(render(&ghost, &bounds).is_err());
