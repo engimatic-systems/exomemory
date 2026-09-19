@@ -19,6 +19,9 @@ in command help, and focused design or verification decisions in named notes
 or tickets. If Python is ever needed, manage its environment, packages, and
 execution with `uv`.
 
+Question-note memories point to files. The agent reads or appends those files
+using ordinary file tools; do not add an Exomemory append operation.
+
 ## Roadmap and tickets
 
 Use `tk` and keep `.tickets/` in Git. Tickets must state background, numbered
@@ -26,9 +29,15 @@ acceptance criteria, optional methods, future work linked to actual tickets,
 and definitions. Put meaningful regression coverage in the same change as
 the implementation it validates.
 
+Use task branches for planning and implementation commits. This origin does
+not permit direct pushes to `main`; the initial roadmap branch is
+`chore/roadmap-init`.
+
 Start with `tk ready`. Run discovery as early as its real prerequisites allow;
 the first investigation is [exo-a6l7](.tickets/exo-a6l7.md), priority 0 with no
 dependencies. The Rust foundation [exo-sjlw](.tickets/exo-sjlw.md) is also ready.
+The [zvec integration discovery](.tickets/exo-pw6d.md) is also priority 0 with
+no dependencies, even though its implementation comes later.
 New discoveries need a bounded question and a concrete decision or probe;
 do not postpone them to the integration phase by default.
 
@@ -41,8 +50,12 @@ The reviewable increments are:
 3. [M3: real Codex acceptance](.tickets/exo-fq27.md), including exact live
    presence reporting, failure recovery, and verification evidence.
 
-[Additional backends and broader rollout](.tickets/exo-fsde.md) are deferred
-until SQLite acceptance. An epic's parent relationship only groups work;
+[Remaining specified backends and workflows](.tickets/exo-fsde.md) have
+concrete dependent tickets. Non-SQLite implementation follows SQLite
+acceptance; SQLite-only extensions can start after their actual M1 or M2
+prerequisites. [The spec coverage map](verification/SPEC-COVERAGE.md) records
+the owner of each requirement and all seven use cases. An epic's parent
+relationship only groups work;
 `tk dep <ticket> <prerequisite>` is the actual execution dependency. Milestone
 epics depend on their acceptance tickets. Close them after their criteria and
 dependencies are satisfied so downstream work becomes ready. Check

@@ -1,37 +1,37 @@
 ---
 id: exo-fsde
 status: open
-deps: [exo-fq27]
+deps: [exo-1izl]
 links: []
 created: 2026-09-19T03:37:25Z
 type: epic
-priority: 4
+priority: 3
 assignee: coopwilliams
-tags: [deferred, roadmap, post-sqlite]
+tags: [roadmap, full-spec, post-sqlite]
 ---
-# Deferred: Reassess additional backends and broader use after SQLite acceptance
+# Complete the remaining specified backends and memory workflows
 
 ## Background in Plain English — WHY
 
-The full spec names more backends and use cases than the first slice needs. Keep them visible without making them prerequisites for the SQLite learning loop. Sources: spec/data service.md and spec/spec - use cases to support.md.
+The full spec names more backends and use cases than the first SQLite slice needs. This epic owns concrete implementation and acceptance tickets for that remaining scope. Discovery starts immediately, SQLite-only extensions follow their actual prerequisites, and non-SQLite implementation waits for exo-fq27. Sources: all spec/ documents and verification/SPEC-COVERAGE.md.
 
 ## Outcomes / Acceptance Criteria — WHAT
 
-1. After exo-fq27, a review records what the SQLite test runs taught us and chooses the next user outcome before scheduling more implementation.
-2. Selected work is split into concrete dependent tickets for zvec, Redis, episodic SQLite, or retrieval-only integrations as justified; unselected ideas remain explicitly deferred.
-3. Any external writable backend includes atomic publication through pending revisions and a durable outbox, idempotent confirmation, and hidden pending triggers.
-4. Any selected search backend documents reproducible snapshot-bound candidate ordering and capability-specific errors.
-5. Global scope, use outside tests/, broader tenancy configuration, additional harnesses, richer trigger types, and operational packaging receive explicit follow-up decisions before rollout.
-6. This planning epic does not claim that any additional backend or production rollout has shipped; closure requires linked next-step tickets or an explicit decision to defer them.
+1. exo-pw6d resolves the zvec integration question without waiting for implementation milestones.
+2. exo-u1mp and exo-3m9v provide backend routing and atomic external publication, with exo-03m1, exo-upbn, exo-jku1, and exo-52xr delivering Redis, zvec, episodic SQLite, and retrieval-only workflows.
+3. exo-reie and exo-hlw6 complete structured date triggers and general scope policy; exo-t3ru demonstrates notes-file references and ordinary agent file operations without adding an Exomemory append command.
+4. The seven specified use cases have executable evidence through existing exo-bios and the new backend, scope, and exo-t3ru scenarios.
+5. All live test runs keep memories and runtime state under tests/; general global-scope semantics use synthetic policy fixtures without enabling real global stores.
+6. The epic closes only after exo-1izl and its prerequisites pass; creating the tickets alone does not constitute implementation completion.
 
 ## Methodological Suggestions — HOW
 
-These are suggestions; another sound method is acceptable. Use the smallest next vertical slice supported by actual test observations. Keep the Rust backend interface extensible without requiring dynamic plugin loading or speculative frameworks in M1.
+These are suggestions; another sound method is acceptable. Follow tk dependencies and keep each backend's create-or-register, ghost, and read path reviewable as an increment. Refine methods using SQLite observations without silently dropping required outcomes. The parent relationship groups work and is not a dependency on this epic.
 
 ## Future work
 
-Concrete expansion tickets are intentionally created only after the SQLite acceptance review; this ticket owns that follow-up and dependency assignment.
+exo-1izl is the final acceptance gate for the concrete scope here. Additional harnesses beyond Codex, operational packaging, and production rollout remain unselected because the spec names no concrete targets for them; they are not implicit implementation requirements of this epic.
 
 ## Definitions
 
-zvec: the vector-search backend named in the spec. Redis: the key-value backend named in the spec. Episodic SQLite: the proposed time- and event-oriented SQLite integration. Retrieval-only: a backend that can read but does not accept memory writes. Idempotent: repeating an operation has the same effect as performing it once. Pending revision: a stored version withheld from readers until external publication completes.
+zvec: the vector-search backend named in the spec. Redis: the key-value backend named in the spec. Episodic SQLite: the time- and event-oriented SQLite integration. Retrieval-only: a backend that can read but does not accept body writes. Atomic publication: exposing every part of a complete revision together. Synthetic fixture: a constructed test value that does not create a live global memory. Acceptance gate: the checks required before claiming the work is complete.

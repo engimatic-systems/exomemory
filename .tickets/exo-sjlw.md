@@ -31,7 +31,7 @@ These are suggestions; another sound method is acceptable. Prefer a small number
 
 ## Future work
 
-exo-b12v implements transactions; exo-ljge connects the daemon and client; exo-h2bg defines context events in detail. exo-fsde handles production configuration beyond the test profile.
+exo-b12v implements transactions; exo-ljge connects the daemon and client; exo-h2bg defines context events in detail. exo-hlw6 completes general scope policy while retaining isolated live test profiles.
 
 ## Definitions
 

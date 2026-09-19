@@ -24,6 +24,7 @@ Memories must surface from relevant events, and identical state must produce ide
 4. Every candidate includes stable key, revision, source pair, relevance band, backend-local rank, scope, provenance, trust, current penalty, and bounded-preview fields.
 5. Filtering applies tenancy and canonical directory scope before exposing results; duplicate matches remain identifiable for App Server collapse.
 6. Repeated equivalent requests produce the same ordered candidates, including SQL ties; tests cover invalid patterns, nonmatches, out-of-scope events, and records that failed publication.
+7. read_token_estimate is populated using a documented repeatable approximation of the referenced full record's retrieval cost, refreshed with its revision; it is not used as a runtime injection allowance.
 
 ## Methodological Suggestions — HOW
 
@@ -31,8 +32,8 @@ These are suggestions; another sound method is acceptable. Begin with a small bu
 
 ## Future work
 
-exo-jtv5 applies the cross-candidate ordering and source limits. exo-6g4f versions mutable penalties. exo-fsde adds richer triggers only after the SQLite slice proves useful.
+exo-jtv5 applies the cross-candidate ordering and source limits. exo-6g4f versions mutable penalties. exo-reie adds structured dates; exo-upbn and exo-03m1 supply the other named backend-specific trigger types.
 
 ## Definitions
 
-Regex: a regular expression used to match text. SQL: the query language used by SQLite. Parameterized query: SQL with separate bound input values. Snapshot: a consistent view of committed state. Relevance band: an ordered relevance category, not a score compared across backends. Source pair: backend instance plus trigger identifier.
+Regex: a regular expression used to match text. SQL: the query language used by SQLite. Parameterized query: SQL with separate bound input values. Snapshot: a consistent view of committed state. Relevance band: an ordered relevance category, not a score compared across backends. Source pair: backend instance plus trigger identifier. read_token_estimate: an approximate count of model text tokens needed to retrieve the full record.

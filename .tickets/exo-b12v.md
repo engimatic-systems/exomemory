@@ -31,7 +31,7 @@ These are suggestions; another sound method is acceptable. Keep the plugin behin
 
 ## Future work
 
-exo-ljge exposes create and read to exoctl. exo-mkyx adds trigger queries. exo-hnil extends complete revision publication to conditional replacement. exo-fsde owns external backends and their durable outbox.
+exo-ljge exposes create and read to exoctl. exo-mkyx adds trigger queries. exo-hnil extends complete revision publication to conditional replacement. exo-3m9v implements the durable outbox for external backends.
 
 ## Definitions
 

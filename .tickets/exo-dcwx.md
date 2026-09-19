@@ -18,7 +18,7 @@ The controlled harness must be replaced by the real host for practical agent use
 
 ## Outcomes / Acceptance Criteria — WHAT
 
-1. The adapter uses the version-specific integration path established by exo-a6l7 and normalizes the supported event classes into the shared event contract.
+1. The adapter uses the version-specific integration path established by exo-a6l7 and normalizes each event class named in the spec: user prompts, tool calls and responses, permission requests, session and sub-agent boundaries, compaction, and turn completion. Events are scanned before the harness continues; unavailable required interfaces remain explicit prerequisites rather than silently omitted event classes.
 2. Codex receives the trusted interpretation wrapper plus escaped ghost data; exoctl full reads remain tool output.
 3. Accepted insertions, retries, rejected delivery, and compaction update authoritative occurrence presence using the same correctness contract as the controlled harness.
 4. Session and sub-agent context boundaries do not leak presence state or bypass test-directory access restrictions.
@@ -31,7 +31,7 @@ These are suggestions; another sound method is acceptable. Keep the adapter thin
 
 ## Future work
 
-exo-a81g includes the real-harness evidence in acceptance. exo-fsde considers additional harnesses after this integration works.
+exo-a81g includes the real-harness evidence in SQLite acceptance. exo-1izl reuses that evidence for full-spec acceptance; the spec does not name another required harness.
 
 ## Definitions
 
