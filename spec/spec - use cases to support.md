@@ -1,8 +1,17 @@
-Here's a list of use cases in which Exomemory could be useful. 
+# Use cases to support
 
-- The user says, remember to always use TypeScript when making frontends. The model uses `xo` to log that memory and make it trigger whenever the word frontend or UX is used. And this stores the memory of a simple text line into SQL or perhaps Redis, which is then retrieved when another agent session tries to think about writing a frontend.
-- The user says to always remember how long the test suite took so that in the future you can wait for the appropriate amount of time while the test suite finishes. The agent creates the memory as an overridable one so that in the future, another agent can override it with the new test suite time after adding a new feature and a new set of tests. This makes the agents remember what the test suite time was whenever they think about the test suite and they don't even have to retrieve the data because it fits inside the ghost.
--  the user says, you should remember where my anthropology documents folder is whenever the topic of anthropology comes up. After the agent creates this trigger, the ghost advertises the relevant document folder when triggered by keywords. The agent then decides to leverage that information to `ls` and `grep` the folder.
--  the user says, remember that experiments live outside of this repo, in the parent directory. The agent creates a brief memory that says exactly that. When instructed to do an experiment, the agent always knows where to put the experiment code.
-- the user says "Remember my birthday," and whenever that date appears, the memory is surfaced as a ghost. 
-- 
+These examples illustrate the eager-ghost workflow. A ghost advertises that potentially useful data exists; it does not become an instruction merely because it surfaced.
+
+- **Long-running task coherence.** During a long-running program synthesis task like completing the ARC-AGI benchmark, the agent may build a library of purpose-built and composable tools. Instead of accumulating a ledger of these tools in an ever-expanding AGENTS.md file, the agent uses the Exomemory to track all its tools. When a new task appears, the agent notices which affordances might be needed and ghosts appear advertising the relevant tools. This saves valuable context for critical decision-making.
+
+- **Long-running questions.** During a long-running analysis task, the agent can keep track of a very large set of open questions which may require the length of several context windows to actually answer. None of those questions needs to enter context until the moment they are relevant. When the agent reads something that triggers the memory of the question, the agent can ignore it, retrieve all its notes on the question, or simply append a small snippet to its notes without reading the existing contents.
+
+- **Frontend preference.** The user says, “Remember to use TypeScript when making frontends.” The agent stores a directory- or global-scoped memory with triggers for frontend work. In a later session, the ghost advertises the preference as data. The current user request remains authoritative, and the agent can retrieve the full record when its scope or exceptions matter.
+
+- **Test-suite duration.** The user asks Exomemory to remember how long the test suite took. The memory is overwritable, so a future agent can propose a new measured duration. The agent supplies the revision it read; if another run updated the record concurrently, compare-and-swap reports a conflict instead of discarding either measurement. A short blurb may contain the duration, but the underlying body and metadata share the same atomic revision.
+
+- **Anthropology corpus.** The user asks to be reminded that an anthropology document collection exists whenever anthropology becomes relevant. A matching ghost advertises the corpus and its provenance; the agent can then decide to search it with `ls`, `rg`, or another retrieval tool. A broad corpus trigger cannot fill the hook response because count and per-source diversity limits apply.
+
+- **Experiment location.** The user says that experiments for a particular repository live in its parent directory. The memory uses directory scope tied to that repository. When an experiment task occurs inside the scope, the ghost advertises the location; it does not apply as a global filesystem instruction.
+
+- **Timeline reconstruction.** The agent could build up a timeline of episodic events incrementally over time, by remembering events that were important enough to recall and adding new events into that timeline. This likely would involve a timeline-oriented storage backend.

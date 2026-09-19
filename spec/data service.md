@@ -1,13 +1,45 @@
-The Data Service is a persistent daemon that accepts normalized read and write requests for various storage backends and brokers connections to those backends.
+# Data Service
 
-The data service responds to requests from the app server with ghosts, and it responds to `xo` with the results of read and write queries.
+The Data Service is a persistent daemon that accepts normalized read and write requests, brokers connections to storage backends, and supplies ghost candidates to the App Server. It responds to the App Server with candidate records and to `xo` with read, creation, feedback, and conditional-overwrite results.
 
-In order to be as fast as possible, it should probably be written in Rust. It will need to handle multiple concurrent connections without a hiccup.
+The implementation should probably be written in Rust for low latency. It must handle multiple concurrent connections, but concurrency must not expose partial records or silently lose accepted writes.
 
-Supported backends each have an integration which defines rules for writing data to the backend which has been supplied by the agent, doing so in an intuitive way such that the agent barely has to worry about anything. Similarly, reading data from the backend is dead simple. Once the trigger has fired, the ghost is retrieved deterministically. Once the agent has requested metadata or the full data, that query is fulfilled deterministically. In-flight transformations on the data are trivial and deterministic, if there are any at all. If a backend is not writable, for example, a backend which searches local files using ripgrep-all, then writes fail.
+## Record and revision contract
 
-The first backends supported should be:
-- `SQLite` (triggers run SQL queries for ghost, `xo` queries return a row)
-- `zvec` (triggers run a vector similarity search to return a ghost, `xo` queries return the data, `xo annoy` raises similarity threshold making the memory quieter)
-- `redis` (triggers run a key-value query that returns a ghost, or the full data if it fits inside the ghost.)
-- `episodic SQL` (triggers run SQL queries for ghost pertaining to a date or event, `xo` queries return related events before, after, or during that event)
+Every writable memory has a stable `ghost_key` and a monotonically increasing revision. A revision contains the body, ghost metadata, trigger definitions, backend reference, scope, provenance, and trust classification needed to interpret it.
+
+A revision becomes readable and trigger-visible atomically. Readers see either the complete previous revision or the complete next revision, never a trigger without data or a ghost describing a different body revision.
+
+When all canonical state is in one transactional store, creation and overwrite commit in one transaction. When an external backend participates, the canonical store uses a pending revision plus a durable outbox:
+
+1. Write the complete pending revision and outbox operation.
+2. Perform and confirm the external backend operation idempotently.
+3. Atomically mark that revision ready and make its triggers visible.
+
+Reads and trigger evaluation ignore pending revisions. Failed pending work may be retried or cleaned up, but it is never advertised as a ghost.
+
+Overwrite is compare-and-swap. The caller supplies the revision it read. The Data Service commits the replacement only if that revision is still current; otherwise it returns a conflict with the current revision and metadata. Per-key revision transitions are linearizable.
+
+## Deterministic candidate contract
+
+After a trigger fires, its backend integration returns an ordered candidate list. Each candidate includes:
+
+- a stable `ghost_key` and record revision;
+- a source identifier consisting of `(backend instance, trigger id)`;
+- a documented relevance band;
+- a deterministic rank within that backend result;
+- scope, provenance, and trust metadata; and
+- the fields needed to render the bounded ghost.
+
+An integration must define deterministic normalization, filtering, ordering, and tie-breaking. Approximate search is acceptable only when the same indexed snapshot and query parameters produce the same ordered result. Raw scores from different backend types are not assumed to be numerically comparable.
+
+`annoy` feedback does not randomly include or exclude a result and does not change whether its trigger fires. The Data Service atomically increments a bounded, non-negative ranking penalty for the memory. The App Server incorporates that penalty into its deterministic ordering.
+
+If a backend is retrieval-only—for example, one that searches local files using ripgrep-all—writes to that backend fail explicitly.
+
+## Initial backends
+
+- `SQLite`: triggers run SQL queries for candidates; `xo` reads return a row.
+- `zvec`: triggers run deterministic, snapshot-bound vector similarity searches; `xo` reads return the referenced data.
+- `redis`: triggers run key-value queries that return a candidate; `xo` reads return the full value.
+- `episodic-SQLite`: triggers query by date or event; `xo` reads can return events before, after, or during the referenced event.

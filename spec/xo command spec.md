@@ -1,11 +1,38 @@
-The `xo` command is the model's POSIX-compliant data control plane. It gives the model:
-- a help page.
-- `xo list-trigger-types` gives an up-to-date list of the available trigger types, which may include simple regex type triggers, specially designated regex triggers like "date", vector similarity, etc.
-- limited access to create new triggers into the Exo memory. `xo create [<data>] <description> <triggers-and-params> <backend-and-params>` creates a non-empty set of triggers and hashes it. the model must also specify which backend should be used to store the data, if applicable. the model can optionally set data to be overwritable so that any agent can modify it across any session.  some backends are retrieval-only and so data will not always be required. Triggers are explicitly scoped, along filesystem boundaries: either "global" so that they run for sessions in all folders, or "dir" so that they run for sessions recursively inside a specific set of folders.
-- full acces to overwrite a trigger: `xo overwrite <ghost_key>`
-- full data read access:  calling `xo <ghost_key>` returns the data through stdout.
-- full metadata read access: `xo meta <ghost_key>` gives all metadata, including that which is excluded from the ghost.
-- `xo annoy` raises the threshold for surfacing the ghost. note that this does not change whether the trigger fires; the trigger is deterministic. What it changes is the relevant filter for the retrieved ghost to be injected into the context window. By default, the filtering mechanism is a random chance set to 100% chance of the trigger "surfacing" the ghost. But backends can override that with a special filtering mechanism. For example, vector similarity results may need their threshold tuned. So if the model decides that the ghost was not relevant for the session, the annoy command will apply an annealing function to raise the threshold so it is less likely to appear. The agent never chooses a threshold value directly. By default, annealing is applied to the random chance of "surfacing".
--  any other information that the model needs to read and write data effectively is also included. 
+# `xo` command
 
- The `xo` command directly queries the data access service daemon.
+The `xo` command is the model's POSIX-compatible data control plane. It queries the Data Service daemon and provides stable exit statuses, machine-readable errors, and the following operations.
+
+## Discovery
+
+- `xo help` describes the installed command grammar and result formats.
+- `xo list-trigger-types` returns the currently available trigger types and their parameters. Types may include ordinary regex triggers, designated structured triggers such as dates, vector similarity, and backend-specific triggers.
+
+## Creation
+
+`xo create [<data>] <description> <triggers-and-params> <backend-and-params>` creates a memory with a non-empty trigger set. The caller specifies the backend when storage is required and may mark the record overwritable across sessions in the same tenancy. Retrieval-only backends do not require stored data.
+
+Triggers are explicitly scoped along filesystem boundaries:
+
+- `global` applies to sessions in every directory permitted by the tenancy.
+- `dir` applies recursively within an explicitly recorded directory root.
+
+Creation returns the stable `ghost_key` and initial revision. It succeeds only after the complete revision is atomically visible under the Data Service publication contract. A pending or partially failed external-backend write is not reported as a successfully created memory and cannot fire a trigger.
+
+## Conditional overwrite
+
+`xo overwrite <ghost_key> --if-revision <revision> ...` proposes a complete replacement revision, including any changed body, ghost metadata, trigger definitions, scope, or backend parameters.
+
+The write succeeds only if `revision` is still current. A stale write returns a conflict, a distinct nonzero exit status, and the current revision and metadata; it never silently overwrites newer work. The caller may retrieve the new state, reconcile, and retry deliberately.
+
+## Reads
+
+- `xo <ghost_key>` returns the full record as tool data through stdout.
+- `xo meta <ghost_key>` returns all metadata, including revision, source, provenance, trust, scope, trigger definitions, ranking penalty, and fields excluded from the rendered ghost.
+
+The ghost revision tells the agent which version its preview described. Reads identify the revision actually returned.
+
+## Negative feedback
+
+`xo annoy <ghost_key>` atomically increments the memory's bounded ranking penalty and returns the new value. It does not change whether the trigger fires, does not directly edit a vector threshold, and never introduces a random surface/no-surface decision. The agent does not choose the numeric penalty directly.
+
+On later events, the App Server uses the penalty as one field of its deterministic lexicographic ranking. The operation is attributable and versioned so that a selection decision can be reproduced from recorded state.

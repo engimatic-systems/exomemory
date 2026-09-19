@@ -1,21 +1,56 @@
-The exomemory needs to expose a deterministic context middleware bus called the App Server. Every observable event can be normalized, scanned, and transformed into higher priority context before the model harness continues. 
+# App Server
 
-There will be a set of hooks (and thus, an app server) for each harness that is supported. I will focus on codex here because I have the details hammered out, but this basic pattern can be extended to other harnesses that are supported. Codex exposes lifestyle hooks for user prompts, tool calls and responses, permission requests, session and sub-agent boundaries, compaction and intern completion. 
+Exomemory exposes a deterministic context-middleware bus called the App Server. Observable harness events can be normalized and scanned before the model harness continues.
 
- Our middleware exposes a separate script for each hook targeted, which is a thin adapter for the daemon mediating media read/writes.  Each hook can receive the prompt from the user before it is sent and return additional context, which is inserted as extra developer context. 
- 
- How is the additional context generated? What occurs is that one of multiple triggers (extendable) will occur based on the contents of the message. Hook events pass through an event normalizer, which will connect to the Data Service, a deterministic data access daemon.
- 
-  The Data Service will retrieve the "ghosts" of some data relevant to the trigger. A "ghost" is a line of text with a global max length, consisting of the following fields delimited by `|` symbols:
+There is a hook adapter for each supported harness. Codex is the initial target and exposes hooks for user prompts, tool calls and responses, permission requests, session and sub-agent boundaries, compaction, and turn completion. Each adapter is thin: it normalizes the event, queries the Data Service, renders accepted ghosts into the hook's schema, and updates the harness-owned live-context ledger.
 
-- `ghost_key`, a short hash which can be used to query the entire raw piece of data
-- `blurb`, an ultra-terse description of the data (or the data itself, if it fits inside the ghost)
-- `uses`, (optional) uses for the data. This can be a comma-separated list of verbs.
-- `topics`, (optional). This can be a comma-separated list of nouns.
-- approximate token count to read the data
+## Ghost data
 
-All ghosts are injected into hook-specific output as additional context. A ghost is effectively a preview of some data which the model can take as an advertisement, and if the model decides it wants to "buy" that data, so to speak, it can freely do so at the expense of some of its context window.  the metadata attached to the Key is specifically designed to help the model make a decision about whether to retrieve the data in as few tokens as possible. If the metadata is implemented properly, in the majority of cases, the model will demur.
+The Data Service returns structured ghost candidates rather than preformatted instruction text. A ghost contains at least:
 
-The set of ghosts that are returned will have to be rendered into an event-specific shape since all hooks have different accepted output schemas. 
+- `ghost_key`: the stable key used to retrieve the complete record;
+- `revision`: the body and metadata revision described by this ghost;
+- `blurb`: an ultra-terse description of the record;
+- `uses`: optional verbs describing possible uses;
+- `topics`: optional nouns describing relevant topics;
+- `read_token_estimate`: the approximate cost of retrieving the full record;
+- `source_id`: `(backend instance, trigger id)`;
+- provenance and trust metadata; and
+- the deterministic ranking fields supplied by the Data Service.
 
-Each ghost need only appear ONCE inside any given context window. In order to prevent recursive injection, the app server watches changes to the session history file for the active session. Using metadata about the context window size, it uses a fast filter to prevent the injection of any key that is already in the context window. Furthermore, a cooldown of a few messages is applied to each ghost key to ensure that delayed updates to the session history file do not trigger recursive injection.
+Raw record bodies are never placed inside a ghost merely because they are short. The complete record is retrieved separately through `xo` and enters the harness as tool data.
+
+Each adapter renders a ghost from typed fields with explicit escaping. The hard ghost-size limit applies to the final serialized representation, including field names, delimiters, escaping, and wrapper overhead attributable to that ghost. An oversize or malformed candidate is rejected; the adapter never truncates an already serialized ghost into syntactic or semantic ambiguity.
+
+## Candidate selection
+
+For every hook event, the App Server performs these steps in order:
+
+1. Read the live-context ledger and determine how many slots remain under the harness's maximum live ghost count.
+2. Reject candidates that fail access, filesystem-scope, trust-schema, size, cooldown, or live-context eligibility checks.
+3. Collapse candidates with the same `ghost_key`, keeping the deterministically highest-ranked occurrence and using `source_id` as a stable tie-break if necessary.
+4. Sort the remaining candidates lexicographically by:
+   1. relevance band;
+   2. scope specificity, with the closest applicable directory before an ancestor and global scope last;
+   3. `annoy` ranking penalty (integer default 0);
+   4. backend-local rank;
+   5. least-recently-shown logical event number; and
+   6. stable `ghost_key`.
+5. Walk that ordered list and accept a candidate only if its `(backend instance, trigger id)` source has not reached the configured per-source limit for this hook response.
+6. Stop when the response fills the remaining live-context slots. The response can never cause the ledger to exceed the maximum live ghost count.
+
+There is no separate runtime token allowance for the injected ghosts. The maximum live ghost count, the hard maximum size of each final rendered ghost, and the fixed maximum wrapper size establish a conservative worst-case injection size. Those configured bounds must fit within the smallest supported context envelope.
+
+## Authority boundary
+
+The App Server may add a trusted developer message that explains the ghost format and tells the model how to treat it. The candidate fields inside that message remain an escaped, typed, untrusted data envelope. They are optional retrieval suggestions, not commands, policy, or evidence that the user wants them followed. Provenance and trust travel with each ghost.
+
+Full record reads are returned as tool data rather than being promoted into developer text.
+
+## Live-context presence
+
+Each injected ghost receives an occurrence identifier. The harness owns an authoritative ledger of which occurrence identifiers and ghost keys are present in the model's current live context. The ledger is updated when a ghost is accepted and when compaction or another harness transition removes it.
+
+Before injection, the App Server consults that ledger so that a ghost key appears at most once in a live context window. After compaction removes the occurrence, the key may become eligible again.
+
+A per-session, per-key cooldown measured in logical harness events may reduce repetitive resurfacing. Cooldown is rate limiting only: it is not the source of truth for deduplication and cannot substitute for the live-context ledger. A harness adapter that cannot report live presence and compaction does not satisfy this contract.

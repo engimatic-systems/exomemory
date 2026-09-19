@@ -1,0 +1,4 @@
+/_IGNORE_/*
+/verification/.tools/
+/verification/.tlc/
+/verification/results/*.log
