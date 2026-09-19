@@ -1,6 +1,6 @@
 ---
 id: exo-a6l7
-status: open
+status: closed
 deps: []
 links: []
 created: 2026-09-19T03:37:25Z
@@ -36,3 +36,9 @@ exo-dcwx builds the established integration. exo-fq27 cannot close without the r
 ## Definitions
 
 Capability table: a mapping from each needed behavior to the interface that supplies it. Probe: a minimal experiment checking a specific interface. Host change: a modification to the harness itself when an adapter cannot supply missing behavior.
+
+## Notes
+
+**2026-09-19T04:11:03Z**
+
+Completed version-specific schema inspection and isolated Rust RPC probe on Codex 0.155.1. See verification/CODEX-INTEGRATION.md. cargo fmt and clippy -D warnings passed; repeat probe acknowledged initialization, thread creation, and item injection. exo-7pi0 tracks the unverified host barriers and exact presence interface and is an explicit exo-dcwx prerequisite.
