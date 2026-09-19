@@ -60,3 +60,103 @@ pub fn draft(run: &Run) -> Draft {
         overwritable: true,
     }
 }
+pub struct Daemon {
+    child: std::process::Child,
+    pub socket: PathBuf,
+}
+impl Daemon {
+    pub fn start(run: &Run) -> Self {
+        use std::{
+            os::unix::net::UnixStream,
+            process::{Command, Stdio},
+            time::{Duration, Instant},
+        };
+        let socket = run.root.join("exo.sock");
+        let mut child = Command::new(env!("CARGO_BIN_EXE_exod"))
+            .args([
+                "--runtime",
+                run.root.to_str().unwrap(),
+                "--scope-root",
+                run.scope.to_str().unwrap(),
+                "--tenant",
+                &run.policy.tenant,
+                "--database",
+                run.root.join("memory.sqlite").to_str().unwrap(),
+                "--socket",
+                socket.to_str().unwrap(),
+            ])
+            .stdout(Stdio::from(
+                fs::File::create(run.root.join("logs/daemon.stdout")).unwrap(),
+            ))
+            .stderr(Stdio::from(
+                fs::File::create(run.root.join("logs/daemon.stderr")).unwrap(),
+            ))
+            .spawn()
+            .unwrap();
+        let deadline = Instant::now() + Duration::from_secs(5);
+        loop {
+            if UnixStream::connect(&socket).is_ok() {
+                break;
+            }
+            assert!(child.try_wait().unwrap().is_none(), "daemon exited");
+            if Instant::now() >= deadline {
+                let _ = child.kill();
+                let _ = child.wait();
+                panic!("daemon startup timeout");
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        Self { child, socket }
+    }
+}
+impl Drop for Daemon {
+    fn drop(&mut self) {
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+    }
+}
+pub fn ctl(
+    run: &Run,
+    socket: &std::path::Path,
+    cwd: &std::path::Path,
+    args: &[&str],
+    input: Option<&Draft>,
+) -> (i32, serde_json::Value) {
+    use std::{
+        io::Write,
+        process::{Command, Stdio},
+    };
+    let mut child = Command::new(env!("CARGO_BIN_EXE_exoctl"))
+        .args([
+            "--runtime",
+            run.root.to_str().unwrap(),
+            "--scope-root",
+            run.scope.to_str().unwrap(),
+            "--tenant",
+            &run.policy.tenant,
+            "--session",
+            &run.context.session,
+            "--cwd",
+            cwd.to_str().unwrap(),
+            "--socket",
+            socket.to_str().unwrap(),
+        ])
+        .args(args)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .unwrap();
+    if let Some(draft) = input {
+        child
+            .stdin
+            .take()
+            .unwrap()
+            .write_all(&serde_json::to_vec(draft).unwrap())
+            .unwrap();
+    }
+    let output = child.wait_with_output().unwrap();
+    (
+        output.status.code().unwrap(),
+        serde_json::from_slice(&output.stdout).unwrap(),
+    )
+}

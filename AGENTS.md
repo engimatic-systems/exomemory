@@ -124,3 +124,11 @@ resolved directory boundaries govern access. Tests own their runtime trees;
 concurrent hostile filesystem mutation is outside this local controlled
 profile. The daemon must bind requests to its configured tenant and apply
 this same policy at each operation, including metadata and candidates.
+
+The process-level service check is `cargo test --test process`. It launches
+`exod`, uses `exoctl` for creation/read/metadata, restarts the daemon, and checks
+concurrent clients and direct protocol rejection. `cargo run --bin exoctl --
+help` and `cargo run --bin exod -- help` document explicit configuration,
+JSON draft input, response envelopes and exit statuses. SQLite busy handling
+is bounded to two seconds and local socket I/O to five seconds. A disconnected
+write has an uncertain result; the client must not assume it rolled back.

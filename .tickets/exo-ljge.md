@@ -1,6 +1,6 @@
 ---
 id: exo-ljge
-status: open
+status: closed
 deps: [exo-b12v]
 links: []
 created: 2026-09-19T03:37:24Z
@@ -36,3 +36,9 @@ exo-mkyx connects trigger matching to the service. exo-hnil and exo-6g4f add the
 ## Definitions
 
 Daemon: a long-running service process. POSIX: conventions for Unix-like command-line tools. stdout: a process's normal output stream. Unix socket: a local endpoint for communication between processes. Structured output: data with a documented format that programs can parse.
+
+## Notes
+
+**2026-09-19T04:22:19Z**
+
+Delivered Unix-socket exod and exoctl with explicit runtime/scope/tenant/session configuration, full draft JSON creation, read, metadata and trigger discovery. stdout and exit-status contracts are in command help. Process tests cover restart persistence, concurrent clients, unsupported backend/trigger, invalid input, missing keys, unavailable service and direct socket scope/protocol checks. Formatting and clippy -D warnings pass; process tests pass.
