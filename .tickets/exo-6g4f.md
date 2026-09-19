@@ -1,6 +1,6 @@
 ---
 id: exo-6g4f
-status: open
+status: closed
 deps: [exo-5iw6]
 links: []
 created: 2026-09-19T03:37:25Z
@@ -36,3 +36,9 @@ exo-bios demonstrates feedback with overwrites. exo-a81g verifies that the imple
 ## Definitions
 
 Attribution: identifying who or which session performed an operation. Saturation: staying at the maximum instead of overflowing. Replay: reproducing a decision from saved inputs and state. Monotonic version: a counter that never decreases.
+
+## Notes
+
+**2026-09-19T15:14:14Z**
+
+Implemented fixed saturating annoy increments with independent feedback versions, ordered session/cwd attribution, transactional migration and candidate snapshots. Overwrite preserves feedback. Four tests cover migration, concurrency, saturation, rollback, CLI/scope and deterministic replay; existing lexicographic tests prove relevance/scope priority. All 30 offline tests and fmt/clippy pass.

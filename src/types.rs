@@ -125,6 +125,8 @@ pub struct Metadata {
     pub trust: Trust,
     pub overwritable: bool,
     pub penalty: u32,
+    #[serde(default)]
+    pub feedback_version: u64,
     pub read_token_estimate: u64,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -155,12 +157,25 @@ pub struct Candidate {
     pub relevance_band: u32,
     pub backend_rank: u64,
     pub penalty: u32,
+    #[serde(default)]
+    pub feedback_version: u64,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CandidateSnapshot {
     pub state_version: u64,
     pub candidates: Vec<Candidate>,
+}
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Feedback {
+    pub ghost_key: String,
+    pub penalty: u32,
+    pub feedback_version: u64,
+    pub state_version: u64,
+    pub tenant: String,
+    pub session: String,
+    pub cwd: PathBuf,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -199,6 +214,9 @@ pub enum Operation {
     ListTriggerTypes,
     Create {
         draft: Draft,
+    },
+    Annoy {
+        key: String,
     },
     Overwrite {
         key: String,

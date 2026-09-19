@@ -6,6 +6,7 @@ exoctl OPTIONS create --json FILE|-
 exoctl OPTIONS overwrite GHOST_KEY --if-revision REVISION --json FILE|-
 exoctl OPTIONS GHOST_KEY
 exoctl OPTIONS meta GHOST_KEY
+exoctl OPTIONS annoy GHOST_KEY
 
 OPTIONS (all required, before command):
   --runtime DIR --scope-root DIR --socket PATH --tenant ID --session ID --cwd DIR
@@ -25,6 +26,8 @@ stdout: one JSON object {"version":1,"result":{"Ok":VALUE}} or
 Create and reads return {metadata,body}; metadata includes actual revision,
 tenant, scope, provenance, trust, triggers, backend, overwrite permission,
 ranking penalty and read estimate. meta returns metadata only.
+Annoy increments a penalty up to 4294967295 and returns penalty, feedback_version,
+state_version and session attribution. It never changes matching or body revision.
 Overwrite returns the complete replacement. A stale overwrite exits 7 and returns
 Err.current metadata (including current revision); reconcile before trying again.
 Exit statuses: 0 success; 2 invalid_input; 3 unavailable; 4 forbidden;
@@ -83,8 +86,9 @@ fn run(args: Vec<String>) -> Result<serde_json::Value> {
                 draft: read_draft(path)?,
             }
         }
+        [op, key] if op == "annoy" => Operation::Annoy { key: key.clone() },
         [op, key] if op == "meta" => Operation::Meta { key: key.clone() },
-        [key] if !["create", "meta", "overwrite"].contains(&key.as_str()) => {
+        [key] if !["create", "meta", "overwrite", "annoy"].contains(&key.as_str()) => {
             Operation::Read { key: key.clone() }
         }
         _ => {

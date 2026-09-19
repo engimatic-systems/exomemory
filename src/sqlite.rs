@@ -21,13 +21,16 @@ impl Sqlite {
         let version: u32 = transaction.query_row("PRAGMA user_version", [], |r| r.get(0))?;
         match version {
             0 => transaction.execute_batch(include_str!("../migrations/001_initial.sql"))?,
-            1 => {}
+            1 | 2 => {}
             _ => {
                 return Err(Error::new(
                     ErrorCode::Unsupported,
                     "unsupported SQLite schema version",
                 ));
             }
+        }
+        if version < 2 {
+            transaction.execute_batch(include_str!("../migrations/003_feedback.sql"))?;
         }
         transaction.commit()?;
         Ok(Self { connection })
@@ -83,11 +86,35 @@ pub(crate) fn decode_record(json: &str) -> Result<Record> {
     serde_json::from_str(json)
         .map_err(|e| Error::new(ErrorCode::Internal, format!("invalid stored record: {e}")))
 }
+fn estimate(record: &mut Record) -> Result<()> {
+    // Deterministic UTF-8 byte/4 approximation of full JSON retrieval.
+    // Iterate to account for the estimate field's own decimal width.
+    loop {
+        let estimate = serde_json::to_vec(&*record)?.len().div_ceil(4) as u64;
+        if estimate == record.metadata.read_token_estimate {
+            break;
+        }
+        record.metadata.read_token_estimate = estimate;
+    }
+    Ok(())
+}
+// One SQL snapshot combines the immutable current revision with mutable feedback.
+fn current(connection: &Connection, key: &str) -> Result<Record> {
+    let row: Option<(String,u32,u64)> = connection.query_row("SELECT r.record_json,f.penalty,f.version FROM memories m JOIN revisions r ON r.ghost_key=m.ghost_key AND r.revision=m.current_revision JOIN feedback f ON f.ghost_key=m.ghost_key WHERE m.ghost_key=?1", [key], |r| Ok((r.get(0)?,r.get(1)?,r.get::<_,i64>(2)? as u64))).optional()?;
+    let (json, penalty, version) =
+        row.ok_or_else(|| Error::new(ErrorCode::NotFound, "memory not found"))?;
+    let mut record = decode_record(&json)?;
+    record.metadata.penalty = penalty;
+    record.metadata.feedback_version = version;
+    estimate(&mut record)?;
+    Ok(record)
+}
 fn assemble(
     context: &Context,
     key: &str,
     revision: u64,
     penalty: u32,
+    feedback_version: u64,
     draft: Draft,
 ) -> Result<Record> {
     let metadata = Metadata {
@@ -104,21 +131,14 @@ fn assemble(
         trust: draft.trust,
         overwritable: draft.overwritable,
         penalty,
+        feedback_version,
         read_token_estimate: 0,
     };
     let mut record = Record {
         metadata,
         body: draft.body,
     };
-    // Deterministic UTF-8 byte/4 approximation of full JSON retrieval.
-    // Iterate to account for the estimate field's own decimal width.
-    loop {
-        let estimate = serde_json::to_vec(&record)?.len().div_ceil(4) as u64;
-        if estimate == record.metadata.read_token_estimate {
-            break;
-        }
-        record.metadata.read_token_estimate = estimate;
-    }
+    estimate(&mut record)?;
     let serialized = serde_json::to_string(&record)?;
     if serialized.len() > MAX_RECORD_BYTES {
         return Err(Error::new(
@@ -134,19 +154,20 @@ impl Storage for Sqlite {
             read: true,
             create: true,
             overwrite: true,
-            feedback: false,
+            feedback: true,
             candidates: true,
         }
     }
     fn create(&mut self, policy: &Policy, context: &Context, mut draft: Draft) -> Result<Record> {
         validate_draft(policy, context, &mut draft)?;
         let key = uuid::Uuid::new_v4().to_string();
-        let record = assemble(context, &key, 1, 0, draft)?;
+        let record = assemble(context, &key, 1, 0, 0, draft)?;
         let serialized = serde_json::to_string(&record)?;
         let tx = self
             .connection
             .transaction_with_behavior(TransactionBehavior::Immediate)?;
         tx.execute("INSERT INTO memories VALUES (?1,1)", params![key])?;
+        tx.execute("INSERT INTO feedback VALUES (?1,0,0)", params![key])?;
         tx.execute(
             "INSERT INTO revisions VALUES (?1,1,?2)",
             params![key, serialized],
@@ -166,10 +187,7 @@ impl Storage for Sqlite {
     }
     fn read(&mut self, policy: &Policy, context: &Context, key: &str) -> Result<Record> {
         policy.context(context)?;
-        let json:Option<String>=self.connection.query_row("SELECT r.record_json FROM memories m JOIN revisions r ON r.ghost_key=m.ghost_key AND r.revision=m.current_revision WHERE m.ghost_key=?1",params![key],|r|r.get(0)).optional()?;
-        let record = decode_record(
-            &json.ok_or_else(|| Error::new(ErrorCode::NotFound, "memory not found"))?,
-        )?;
+        let record = current(&self.connection, key)?;
         policy.access(context, &record.metadata.tenant, &record.metadata.scope)?;
         Ok(record)
     }
@@ -192,10 +210,7 @@ impl Storage for Sqlite {
         let tx = self
             .connection
             .transaction_with_behavior(TransactionBehavior::Immediate)?;
-        let json: Option<String> = tx.query_row("SELECT r.record_json FROM memories m JOIN revisions r ON r.ghost_key=m.ghost_key AND r.revision=m.current_revision WHERE m.ghost_key=?1", [key], |r| r.get(0)).optional()?;
-        let old = decode_record(
-            &json.ok_or_else(|| Error::new(ErrorCode::NotFound, "memory not found"))?,
-        )?;
+        let old = current(&tx, key)?;
         policy.access(context, &old.metadata.tenant, &old.metadata.scope)?;
         if !old.metadata.overwritable {
             return Err(Error::new(ErrorCode::Forbidden, "memory is immutable"));
@@ -213,7 +228,14 @@ impl Storage for Sqlite {
             .checked_add(1)
             .filter(|n| *n <= i64::MAX as u64)
             .ok_or_else(|| Error::new(ErrorCode::Conflict, "revision exhausted"))?;
-        let record = assemble(context, key, revision, old.metadata.penalty, draft)?;
+        let record = assemble(
+            context,
+            key,
+            revision,
+            old.metadata.penalty,
+            old.metadata.feedback_version,
+            draft,
+        )?;
         // Body, metadata, triggers and the visible revision pointer share one commit.
         tx.execute(
             "INSERT INTO revisions VALUES (?1,?2,?3)",
@@ -241,6 +263,59 @@ impl Storage for Sqlite {
         )?;
         tx.commit()?;
         Ok(record)
+    }
+
+    fn annoy(&mut self, policy: &Policy, context: &Context, key: &str) -> Result<Feedback> {
+        policy.context(context)?;
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let record = current(&tx, key)?;
+        policy.access(context, &record.metadata.tenant, &record.metadata.scope)?;
+        let version = record
+            .metadata
+            .feedback_version
+            .checked_add(1)
+            .filter(|n| *n <= i64::MAX as u64)
+            .ok_or_else(|| Error::new(ErrorCode::Conflict, "feedback version exhausted"))?;
+        let penalty = record.metadata.penalty.saturating_add(1);
+        tx.execute(
+            "UPDATE feedback SET penalty=?2,version=?3 WHERE ghost_key=?1",
+            params![key, penalty, version as i64],
+        )?;
+        tx.execute(
+            "UPDATE store_state SET version=version+1 WHERE singleton=1",
+            [],
+        )?;
+        let state_version: i64 = tx.query_row(
+            "SELECT version FROM store_state WHERE singleton=1",
+            [],
+            |r| r.get(0),
+        )?;
+        let cwd = policy.context(context)?;
+        // Even a saturated request gets an ordered attribution entry, not another increment.
+        tx.execute(
+            "INSERT INTO feedback_events VALUES (?1,?2,?3,?4,?5,?6,?7)",
+            params![
+                state_version,
+                key,
+                version as i64,
+                context.tenant,
+                context.session,
+                cwd.to_string_lossy(),
+                penalty
+            ],
+        )?;
+        tx.commit()?;
+        Ok(Feedback {
+            ghost_key: key.into(),
+            penalty,
+            feedback_version: version,
+            state_version: state_version as u64,
+            tenant: context.tenant.clone(),
+            session: context.session.clone(),
+            cwd,
+        })
     }
 
     fn candidates(&mut self, policy: &Policy, event: &Event) -> Result<CandidateSnapshot> {
@@ -280,9 +355,7 @@ impl Storage for Sqlite {
             if !regex.is_match(&text) {
                 continue;
             }
-            // Built-in read-only template. Neither event text nor a pattern is SQL syntax.
-            let json: String = tx.query_row("SELECT r.record_json FROM revisions r JOIN memories m ON m.ghost_key=r.ghost_key AND m.current_revision=r.revision JOIN triggers t ON t.ghost_key=r.ghost_key AND t.revision=r.revision WHERE r.ghost_key=?1 AND t.trigger_id=?2 AND json_extract(r.record_json,'$.metadata.tenant')=?3 ORDER BY r.ghost_key,r.revision", params![key,trigger,event.context.tenant], |r| r.get(0))?;
-            let metadata = decode_record(&json)?.metadata;
+            let metadata = current(&tx, &key)?.metadata;
             if policy
                 .access(&event.context, &metadata.tenant, &metadata.scope)
                 .is_err()
@@ -312,6 +385,7 @@ impl Storage for Sqlite {
                 relevance_band: 0,
                 backend_rank: *rank,
                 penalty: metadata.penalty,
+                feedback_version: metadata.feedback_version,
             });
             *rank += 1;
         }
