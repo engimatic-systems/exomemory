@@ -180,3 +180,14 @@ pending GitHub workflow-write permission, as recorded in the acceptance note. Th
 Codex and scripted-provider probes remain explicit host-dependent commands.
 `verification/SQLITE-ACCEPTANCE.md` maps each contract to executable evidence and
 records tested versions, artifact locations and the remaining product scope.
+
+The user-authorized personal trial has a separate explicit `--profile local`;
+all automated tests still use their own directories under `tests/.runtime/`.
+Default command configuration remains the isolated test profile. Local mode
+requires a private existing runtime and an explicit permitted directory root;
+it enables directory scopes only. `verification/LOCAL-INSTALL.md` records the
+macOS installer, installed commands, reversal and host-version limit. Run
+`cargo test --test install` for isolated installation/scope regressions and
+`cargo test --test codex_live installed_hooks -- --ignored --nocapture` for the
+installed trust/CLI path with GPT 5.6 Luna. Never point these tests at the personal
+memory store or install their hooks globally.

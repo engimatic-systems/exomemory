@@ -3,7 +3,22 @@ use std::{
     fs,
     path::{Component, Path, PathBuf},
 };
-/// Explicit test profile. All configured roots must already exist.
+#[derive(Debug, Clone, Copy, Default, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Profile {
+    #[default]
+    Test,
+    Local,
+}
+impl Profile {
+    pub fn policy(self, runtime: &Path, scope: &Path, tenant: String) -> Result<Policy> {
+        match self {
+            Self::Test => Policy::test_profile(runtime, scope, tenant),
+            Self::Local => Policy::local_profile(runtime, scope, tenant),
+        }
+    }
+}
+/// Explicit runtime and directory boundaries; all roots must already exist.
 #[derive(Debug, Clone)]
 pub struct Policy {
     pub runtime: PathBuf,
@@ -47,6 +62,25 @@ impl Policy {
             tenant,
         })
     }
+    pub fn local_profile(runtime: &Path, permitted_root: &Path, tenant: String) -> Result<Self> {
+        use std::os::unix::fs::PermissionsExt;
+        let runtime = canonical(runtime)?;
+        let permitted_root = canonical(permitted_root)?;
+        if !runtime.is_dir()
+            || !permitted_root.is_dir()
+            || tenant.trim().is_empty()
+            || fs::metadata(&runtime)?.permissions().mode() & 0o077 != 0
+        {
+            return Err(forbidden(
+                "local runtime must be a private directory; scope and tenant are required",
+            ));
+        }
+        Ok(Self {
+            runtime,
+            permitted_root,
+            tenant,
+        })
+    }
     pub fn runtime_path(&self, path: &Path) -> Result<PathBuf> {
         clean_absolute(path)?;
         let resolved = if path.exists() {
@@ -81,7 +115,7 @@ impl Policy {
     pub fn write_scope(&self, context: &Context, scope: &Scope) -> Result<Scope> {
         let cwd = self.context(context)?;
         let Scope::Dir { root } = scope else {
-            return Err(forbidden("global scope disabled in test profile"));
+            return Err(forbidden("global scope is not enabled in this profile"));
         };
         let root = canonical(root)?;
         if !root.is_dir() || !root.starts_with(&self.permitted_root) || !cwd.starts_with(&root) {

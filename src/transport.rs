@@ -41,7 +41,21 @@ pub fn required(options: &BTreeMap<String, String>, name: &str) -> Result<String
         .ok_or_else(|| Error::new(ErrorCode::InvalidInput, format!("required {name}")))
 }
 pub fn configured_policy(options: &BTreeMap<String, String>) -> Result<Policy> {
-    Policy::test_profile(
+    let profile = match options
+        .get("--profile")
+        .map(String::as_str)
+        .unwrap_or("test")
+    {
+        "test" => crate::policy::Profile::Test,
+        "local" => crate::policy::Profile::Local,
+        _ => {
+            return Err(Error::new(
+                ErrorCode::InvalidInput,
+                "profile must be test or local",
+            ));
+        }
+    };
+    profile.policy(
         &PathBuf::from(required(options, "--runtime")?),
         &PathBuf::from(required(options, "--scope-root")?),
         required(options, "--tenant")?,

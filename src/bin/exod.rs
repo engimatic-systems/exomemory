@@ -4,7 +4,7 @@ fn main() {
     let args: Vec<_> = std::env::args().skip(1).collect();
     if args == ["help"] || args == ["--help"] {
         println!(
-            "exod --runtime DIR --scope-root DIR --tenant ID --database FILE --socket PATH\nAll paths are explicit and confined to the test run under tests/.runtime/.\nServes version-1 JSON lines on a mode-0600 Unix socket. Stale refused sockets are replaced; active sockets and other files are rejected."
+            "exod --runtime DIR --scope-root DIR --tenant ID --database FILE --socket PATH\nPaths are explicit. --profile test (default) confines all paths to tests/.runtime/. --profile local requires a private runtime and an explicit permitted scope root.\nServes version-1 JSON lines on a mode-0600 Unix socket. Stale refused sockets are replaced; active sockets and other files are rejected."
         );
         return;
     }
@@ -12,6 +12,7 @@ fn main() {
         let (options, rest) = parse_options(
             &args,
             &[
+                "--profile",
                 "--runtime",
                 "--scope-root",
                 "--tenant",

@@ -9,6 +9,8 @@ use support::*;
 
 fn config(run: &Run, daemon: &Daemon) -> HookConfig {
     HookConfig {
+        profile: Default::default(),
+        instructions: None,
         runtime: run.root.clone(),
         scope_root: run.scope.clone(),
         tenant: run.policy.tenant.clone(),
