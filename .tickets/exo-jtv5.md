@@ -1,6 +1,6 @@
 ---
 id: exo-jtv5
-status: open
+status: closed
 deps: [exo-mkyx, exo-aqd9, exo-h2bg]
 links: []
 created: 2026-09-19T03:37:24Z
@@ -36,3 +36,9 @@ exo-lm9g wires selection into the end-to-end first slice. exo-6g4f exercises liv
 ## Definitions
 
 Lexicographic order: compare fields in sequence, using the next only when earlier fields tie. Duplicate collapse: keep one occurrence per memory key. Quota: a maximum count per source. Sentinel: a defined special value, here for a memory never shown.
+
+## Notes
+
+**2026-09-19T04:30:51Z**
+
+Implemented exact ascending lexicographic selection: relevance, canonical scope distance, penalty, backend-local rank, least-recently-shown event (never=0), stable key. Eligibility and final rendering precede duplicate collapse; source pairs break duplicate ties and enforce response quotas. Presence version and logical event checks coordinate with harness acceptance. Tests independently oppose later fields for every ranking field, vary input order, and cover quotas, source ties, zero slots, cooldown/live filtering, malformed/oversized candidates, scope and trust schema. Formatting, clippy and selection tests pass.
