@@ -1,3 +1,4 @@
+mod hooks;
 use serde_json::{Value, json};
 use std::{
     fs,
@@ -6,6 +7,16 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let args: Vec<_> = std::env::args().collect();
+    if args.get(1).is_some_and(|a| a == "--hook") {
+        return hooks::hook(std::path::Path::new(
+            args.get(2).ok_or("run directory required")?,
+        ));
+    }
+    if args.get(1).is_some_and(|a| a == "--hooks") {
+        return hooks::run();
+    }
+
     let repo = fs::canonicalize(concat!(env!("CARGO_MANIFEST_DIR"), "/../../.."))?;
     let run = repo.join(format!(
         "tests/.runtime/codex-{}-{}",
