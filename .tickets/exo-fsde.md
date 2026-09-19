@@ -30,7 +30,7 @@ These are suggestions; another sound method is acceptable. Follow tk dependencie
 
 ## Future work
 
-exo-1izl is the final acceptance gate for the concrete scope here. Additional harnesses beyond Codex, operational packaging, and production rollout remain unselected because the spec names no concrete targets for them; they are not implicit implementation requirements of this epic.
+exo-1izl is the final acceptance gate for the concrete scope here. exo-qvzg is a bounded, nonblocking discovery for Pi as an additional host. It does not add Pi implementation to this epic until that discovery creates a concrete implementation ticket and dependency. Operational packaging and production rollout remain unselected.
 
 ## Definitions
 
