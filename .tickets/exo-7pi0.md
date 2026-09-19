@@ -1,6 +1,6 @@
 ---
 id: exo-7pi0
-status: in_progress
+status: closed
 deps: [exo-0wuy]
 links: []
 created: 2026-09-19T04:09:30Z
@@ -25,9 +25,10 @@ verification/ATTEMPT-SUPPRESSION.md and spec/App server spec.md.
 1. A bounded isolated probe verifies event mapping and synchronous hook behavior
    for prompt, tool call/response, permission, session, child, compaction, and
    turn-completion events, distinguishing runtime evidence from schema evidence.
-2. A synthetic preview reaches actual model input through a documented host path.
-3. Completed-compaction notification or hook resets only its context; start or
-   failed compaction does not reset. No exact survivor list is required.
+2. Synthetic context reaches actual model input through a verified host path.
+3. The completion hook identifies the affected root or child context and is
+   absent after aborted compaction. exo-dcwx wires this signal to the tested
+   per-context reset. No exact survivor list is required.
 4. The version-specific decision records concurrency and restart limitations,
    commands, evidence artifacts, and any remaining integration prerequisite.
 
@@ -53,3 +54,9 @@ The earlier probe demonstrated that 0.155.1 has no verified exact-presence or
 conditional-insertion contract. That result is retained in
 verification/CODEX-HOST-CONTRACT.md; the user explicitly removed that requirement.
 exo-adfe is superseded, not implemented. This ticket now verifies ordinary hooks.
+
+## Notes
+
+**2026-09-19T14:53:22Z**
+
+Verified Codex 0.155.1 with the isolated --hooks probe. All eleven event types execute synchronously; prompt gate prevents model advance; context markers and insertion during a waiting permission hook reach actual scripted-provider requests. Aborted compaction emits no PostCompact; successful root and child compactions do, with parent-session/child-context identity. Stop output must be {} rather than additionalContext. See verification/CODEX-HOOKS.md for commands, limits, and adapter mapping. Probe formatting, Clippy, and executable checks pass. This establishes the host path, not full application or real-model acceptance.

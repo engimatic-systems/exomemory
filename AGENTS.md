@@ -119,6 +119,9 @@ Discovery probes have separate manifests under `tests/probes/` and are not
 registered application backends. Their commands are in
 `verification/CODEX-INTEGRATION.md` and `verification/ZVEC-SNAPSHOTS.md`.
 
+Use GPT 5.6 Luna (`gpt-5.6-luna`) for live Codex tests. Clearly distinguish
+scripted local-provider protocol probes from tests using actual model inference.
+
 The first profile requires an explicit existing runtime directory, permitted
 scope root and tenant. Paths must be absolute and contain no parent traversal;
 resolved directory boundaries govern access. Tests own their runtime trees;

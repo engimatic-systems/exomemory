@@ -1,5 +1,7 @@
 # Codex integration decision — 0.155.1
 
+Current best-effort integration path: [Codex hooks](CODEX-HOOKS.md).
+
 > Historical exact-presence investigation. On 2026-09-19 the user approved
 > best-effort attempts with reset after completed compaction. The missing
 > presence interface below no longer blocks M3 and no Codex fork is required
