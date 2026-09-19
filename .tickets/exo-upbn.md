@@ -37,3 +37,12 @@ exo-1izl verifies selection across zvec and other backends. No additional vector
 ## Definitions
 
 Vector: a list of numbers used to represent an item for similarity matching. Index: the search structure built from stored vectors. Similarity threshold: the boundary for considering a match. Backend-local rank: deterministic order within one backend's result.
+
+## Discovery decision
+
+Follow verification/ZVEC-SNAPSHOTS.md: zvec-rust 0.7.1 C API route, separately
+pinned native binary, supplied vectors, Flat squared L2, immutable generations,
+read-only query handles, and deterministic ties before result limiting.
+Enforce a documented collection-size bound for exhaustive retrieval. Include
+native artifact identity and vector provenance in snapshot identity. Probe
+results do not replace this ticket's publication and concurrent restart tests.
