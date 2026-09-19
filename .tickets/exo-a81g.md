@@ -36,3 +36,13 @@ exo-fsde opens expansion only after this acceptance gate. No other future work i
 ## Definitions
 
 Invariant: a property required to remain true throughout execution. TLA+: the specification language used by the models. TLC: the program that checks the finite models. CI: automated continuous integration checks. Traceability matrix: a table linking each requirement to its verification evidence.
+
+## Notes
+
+**2026-09-19T15:24:36Z**
+
+Acceptance matrix and reusable check script added, with GitHub Actions running the same offline gate. Formatting, clippy, 38 offline entries and all eleven TLC expectations passed. Final real GPT 5.6 Luna run tests/.runtime/re7c4dec44f76 passed on Codex 0.155.1 with full read, suppression, PostCompact reset, resurfacing and successful hooks; auth copy removed. All dependencies closed, no cycles, generated artifacts ignored. See verification/SQLITE-ACCEPTANCE.md for exact coverage, host-dependent commands and limits.
+
+**2026-09-19T15:25:49Z**
+
+Reopened: GitHub rejected the acceptance branch because the configured PAT lacks workflow scope. The tested gate and exact proposed workflow are reviewable at verification/check-sqlite.sh and verification/sqlite-workflow.yml; the latter is not active. All local checks and real Luna evidence pass, but a maintainer must enable workflow permission or publish the prepared workflow, then inspect CI before closure.

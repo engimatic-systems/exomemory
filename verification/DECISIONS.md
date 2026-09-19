@@ -12,7 +12,8 @@ Initially recorded from the review form on 2026-09-18; context delivery revised 
    delivery retries or authoritative live presence are required. Dropped previews
    and repeats across compactions are accepted. Cooldown uses last-attempt events.
 4. **Injection bounds and ordering:** use a maximum attempt count per context between completed compactions and a hard
-   limit on each final rendered ghost; include one bounded wrapper per possible send.\n   These bound new injection per interval, not all previews remaining in context. Do not maintain a runtime token budget.
+   limit on each final rendered ghost; include one bounded wrapper per possible send.
+   These bound new injection per interval, not all previews remaining in context. Do not maintain a runtime token budget.
    Select with deterministic lexicographic ranking, a stable final tie-break,
    deterministic `annoy` penalties, and per-source diversity limits.
 5. **Authority:** an App Server developer message may provide the trusted

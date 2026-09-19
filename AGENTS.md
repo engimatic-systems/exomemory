@@ -98,9 +98,10 @@ small fixtures, and verification sources version-controlled. Inspect
 - Keep escaped retrieved fields as untrusted data with provenance; return
   complete records through tool output.
 
-The controlled harness must exercise these contracts from M1. Real Codex
-support remains unverified until the discovery and adapter tickets supply
-version-specific evidence for hooks, delivery, and completed-compaction reset.
+The controlled harness exercises these contracts from M1. Codex 0.155.1 has
+version-specific hook, delivery and completed-compaction evidence in
+`verification/CODEX-HOOKS.md` and `verification/CODEX-ACCEPTANCE.md`. Other host
+versions need fresh verification; exact live presence is not an acceptance claim.
 
 Once the Rust workspace exists, run formatting, linting, and relevant tests
 using its recorded commands. The existing model checks run with
@@ -171,3 +172,11 @@ the real daemon, drop an acknowledged write response, and check mixed clients,
 bounded SQLite contention, version exhaustion and endpoint handling. See
 `verification/SQLITE-RECOVERY.md` for fault schedules and the difference between
 SQLite busy timeout and aggregate queued-request latency.
+
+The SQLite acceptance gate is `./verification/check-sqlite.sh`, which runs
+formatting, clippy, offline tests and eleven model-check expectations.
+The proposed CI workflow is `verification/sqlite-workflow.yml`; activation is
+pending GitHub workflow-write permission, as recorded in the acceptance note. The real
+Codex and scripted-provider probes remain explicit host-dependent commands.
+`verification/SQLITE-ACCEPTANCE.md` maps each contract to executable evidence and
+records tested versions, artifact locations and the remaining product scope.

@@ -12,15 +12,16 @@ use support::*;
 use tungstenite::{Message, WebSocket};
 
 struct Host {
-    child: Child,
+    _child: HostProcess,
     socket: WebSocket<UnixStream>,
     transcript: fs::File,
     observed: Vec<Value>,
 }
-impl Drop for Host {
+struct HostProcess(Child);
+impl Drop for HostProcess {
     fn drop(&mut self) {
-        let _ = self.child.kill();
-        let _ = self.child.wait();
+        let _ = self.0.kill();
+        let _ = self.0.wait();
     }
 }
 struct PrivateAuth(PathBuf);
@@ -163,32 +164,34 @@ fn real_luna_reads_unsolicited_preview_then_suppresses_and_resurfaces_after_comp
         )
         .unwrap();
     drop(auth_file);
-    let mut child = Command::new("codex")
-        .args([
-            "app-server",
-            "--listen",
-            &format!("unix://{}", hook_config.codex_socket.display()),
-        ])
-        .env("CODEX_HOME", &codex_home)
-        .env("TMPDIR", run.root.join("tmp"))
-        .current_dir(&run.scope)
-        .stdin(Stdio::null())
-        .stdout(Stdio::from(
-            fs::File::create(run.root.join("logs/codex.stdout")).unwrap(),
-        ))
-        .stderr(Stdio::from(
-            fs::File::create(run.root.join("logs/codex.stderr")).unwrap(),
-        ))
-        .spawn()
-        .unwrap();
+    let mut child = HostProcess(
+        Command::new("codex")
+            .args([
+                "app-server",
+                "--listen",
+                &format!("unix://{}", hook_config.codex_socket.display()),
+            ])
+            .env("CODEX_HOME", &codex_home)
+            .env("TMPDIR", run.root.join("tmp"))
+            .current_dir(&run.scope)
+            .stdin(Stdio::null())
+            .stdout(Stdio::from(
+                fs::File::create(run.root.join("logs/codex.stdout")).unwrap(),
+            ))
+            .stderr(Stdio::from(
+                fs::File::create(run.root.join("logs/codex.stderr")).unwrap(),
+            ))
+            .spawn()
+            .unwrap(),
+    );
     let deadline = Instant::now() + Duration::from_secs(15);
     let stream = loop {
         if let Ok(stream) = UnixStream::connect(&hook_config.codex_socket) {
             break stream;
         }
-        if child.try_wait().unwrap().is_some() || Instant::now() > deadline {
-            let _ = child.kill();
-            let _ = child.wait();
+        if child.0.try_wait().unwrap().is_some() || Instant::now() > deadline {
+            let _ = child.0.kill();
+            let _ = child.0.wait();
             let _ = fs::remove_file(&auth);
             panic!("Codex startup failed");
         }
@@ -199,7 +202,7 @@ fn real_luna_reads_unsolicited_preview_then_suppresses_and_resurfaces_after_comp
         .unwrap();
     let (socket, _) = tungstenite::client("ws://localhost/", stream).unwrap();
     let mut host = Host {
-        child,
+        _child: child,
         socket,
         transcript: fs::File::create(run.root.join("logs/codex-rpc.jsonl")).unwrap(),
         observed: Vec::new(),

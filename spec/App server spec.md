@@ -2,7 +2,7 @@
 
 Exomemory exposes a deterministic context-middleware bus called the App Server. Observable harness events can be normalized and scanned before the model harness continues.
 
-There is a hook adapter for each supported harness. Codex is the initial target and exposes hooks for user prompts, tool calls and responses, permission requests, session and sub-agent boundaries, compaction, and turn completion. Each adapter is thin: it normalizes the event, queries the Data Service, atomically selects and records attempted ghosts, and emits them once through the hook schema.
+There is a hook adapter for each supported harness. Codex is the initial target and exposes hooks for user prompts, tool calls and responses, permission requests, session and sub-agent boundaries, compaction, and turn completion. Each adapter is thin: it normalizes the event, queries the Data Service, atomically selects and records attempted ghosts, and emits them once through the verified host insertion interface.
 
 ## Ghost data
 
