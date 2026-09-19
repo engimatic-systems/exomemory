@@ -133,6 +133,17 @@ fn dispatch(db: &mut Sqlite, policy: &Policy, request: Request) -> Result<serde_
             &request.context,
             draft,
         )?)?),
+        Operation::Overwrite {
+            key,
+            if_revision,
+            draft,
+        } => Ok(serde_json::to_value(db.overwrite(
+            policy,
+            &request.context,
+            &key,
+            if_revision,
+            draft,
+        )?)?),
         Operation::Read { key } => Ok(serde_json::to_value(db.read(
             policy,
             &request.context,

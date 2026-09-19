@@ -83,12 +83,57 @@ pub(crate) fn decode_record(json: &str) -> Result<Record> {
     serde_json::from_str(json)
         .map_err(|e| Error::new(ErrorCode::Internal, format!("invalid stored record: {e}")))
 }
+fn assemble(
+    context: &Context,
+    key: &str,
+    revision: u64,
+    penalty: u32,
+    draft: Draft,
+) -> Result<Record> {
+    let metadata = Metadata {
+        ghost_key: key.to_owned(),
+        revision,
+        tenant: context.tenant.clone(),
+        blurb: draft.blurb,
+        uses: draft.uses,
+        topics: draft.topics,
+        triggers: draft.triggers,
+        backend: draft.backend,
+        scope: draft.scope,
+        provenance: draft.provenance,
+        trust: draft.trust,
+        overwritable: draft.overwritable,
+        penalty,
+        read_token_estimate: 0,
+    };
+    let mut record = Record {
+        metadata,
+        body: draft.body,
+    };
+    // Deterministic UTF-8 byte/4 approximation of full JSON retrieval.
+    // Iterate to account for the estimate field's own decimal width.
+    loop {
+        let estimate = serde_json::to_vec(&record)?.len().div_ceil(4) as u64;
+        if estimate == record.metadata.read_token_estimate {
+            break;
+        }
+        record.metadata.read_token_estimate = estimate;
+    }
+    let serialized = serde_json::to_string(&record)?;
+    if serialized.len() > MAX_RECORD_BYTES {
+        return Err(Error::new(
+            ErrorCode::InvalidInput,
+            "complete record exceeds supported size",
+        ));
+    }
+    Ok(record)
+}
 impl Storage for Sqlite {
     fn capabilities(&self) -> Capabilities {
         Capabilities {
             read: true,
             create: true,
-            overwrite: false,
+            overwrite: true,
             feedback: false,
             candidates: true,
         }
@@ -96,42 +141,8 @@ impl Storage for Sqlite {
     fn create(&mut self, policy: &Policy, context: &Context, mut draft: Draft) -> Result<Record> {
         validate_draft(policy, context, &mut draft)?;
         let key = uuid::Uuid::new_v4().to_string();
-        let metadata = Metadata {
-            ghost_key: key.clone(),
-            revision: 1,
-            tenant: context.tenant.clone(),
-            blurb: draft.blurb,
-            uses: draft.uses,
-            topics: draft.topics,
-            triggers: draft.triggers,
-            backend: draft.backend,
-            scope: draft.scope,
-            provenance: draft.provenance,
-            trust: draft.trust,
-            overwritable: draft.overwritable,
-            penalty: 0,
-            read_token_estimate: 0,
-        };
-        let mut record = Record {
-            metadata,
-            body: draft.body,
-        };
-        // Deterministic UTF-8 byte/4 approximation of full JSON retrieval.
-        // Iterate to account for the estimate field's own decimal width.
-        loop {
-            let estimate = serde_json::to_vec(&record)?.len().div_ceil(4) as u64;
-            if estimate == record.metadata.read_token_estimate {
-                break;
-            }
-            record.metadata.read_token_estimate = estimate;
-        }
+        let record = assemble(context, &key, 1, 0, draft)?;
         let serialized = serde_json::to_string(&record)?;
-        if serialized.len() > MAX_RECORD_BYTES {
-            return Err(Error::new(
-                ErrorCode::InvalidInput,
-                "complete record exceeds supported size",
-            ));
-        }
         let tx = self
             .connection
             .transaction_with_behavior(TransactionBehavior::Immediate)?;
@@ -160,6 +171,75 @@ impl Storage for Sqlite {
             &json.ok_or_else(|| Error::new(ErrorCode::NotFound, "memory not found"))?,
         )?;
         policy.access(context, &record.metadata.tenant, &record.metadata.scope)?;
+        Ok(record)
+    }
+
+    fn overwrite(
+        &mut self,
+        policy: &Policy,
+        context: &Context,
+        key: &str,
+        if_revision: u64,
+        mut draft: Draft,
+    ) -> Result<Record> {
+        policy.context(context)?;
+        if if_revision == 0 || if_revision > i64::MAX as u64 {
+            return Err(Error::new(
+                ErrorCode::InvalidInput,
+                "revision must be a positive SQLite integer",
+            ));
+        }
+        let tx = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let json: Option<String> = tx.query_row("SELECT r.record_json FROM memories m JOIN revisions r ON r.ghost_key=m.ghost_key AND r.revision=m.current_revision WHERE m.ghost_key=?1", [key], |r| r.get(0)).optional()?;
+        let old = decode_record(
+            &json.ok_or_else(|| Error::new(ErrorCode::NotFound, "memory not found"))?,
+        )?;
+        policy.access(context, &old.metadata.tenant, &old.metadata.scope)?;
+        if !old.metadata.overwritable {
+            return Err(Error::new(ErrorCode::Forbidden, "memory is immutable"));
+        }
+        if old.metadata.revision != if_revision {
+            let mut error = Error::new(
+                ErrorCode::Conflict,
+                "stale revision; reconcile with current metadata",
+            );
+            error.current = Some(Box::new(old.metadata));
+            return Err(error);
+        }
+        validate_draft(policy, context, &mut draft)?;
+        let revision = if_revision
+            .checked_add(1)
+            .filter(|n| *n <= i64::MAX as u64)
+            .ok_or_else(|| Error::new(ErrorCode::Conflict, "revision exhausted"))?;
+        let record = assemble(context, key, revision, old.metadata.penalty, draft)?;
+        // Body, metadata, triggers and the visible revision pointer share one commit.
+        tx.execute(
+            "INSERT INTO revisions VALUES (?1,?2,?3)",
+            params![key, revision as i64, serde_json::to_string(&record)?],
+        )?;
+        for Trigger::Regex { id, pattern } in &record.metadata.triggers {
+            tx.execute(
+                "INSERT INTO triggers VALUES (?1,?2,?3,?4)",
+                params![key, revision as i64, id, pattern],
+            )?;
+        }
+        let changed = tx.execute(
+            "UPDATE memories SET current_revision=?2 WHERE ghost_key=?1 AND current_revision=?3",
+            params![key, revision as i64, if_revision as i64],
+        )?;
+        if changed != 1 {
+            return Err(Error::new(
+                ErrorCode::Internal,
+                "revision changed inside write transaction",
+            ));
+        }
+        tx.execute(
+            "UPDATE store_state SET version=version+1 WHERE singleton=1",
+            [],
+        )?;
+        tx.commit()?;
         Ok(record)
     }
 

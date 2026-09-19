@@ -17,12 +17,15 @@ pub enum ErrorCode {
 pub struct Error {
     pub code: ErrorCode,
     pub message: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub current: Option<Box<Metadata>>,
 }
 impl Error {
     pub fn new(code: ErrorCode, message: impl Into<String>) -> Self {
         Self {
             code,
             message: message.into(),
+            current: None,
         }
     }
     pub fn exit_status(&self) -> i32 {
@@ -194,10 +197,23 @@ pub struct Event {
 #[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Operation {
     ListTriggerTypes,
-    Create { draft: Draft },
-    Read { key: String },
-    Meta { key: String },
-    Candidates { event: Event },
+    Create {
+        draft: Draft,
+    },
+    Overwrite {
+        key: String,
+        if_revision: u64,
+        draft: Draft,
+    },
+    Read {
+        key: String,
+    },
+    Meta {
+        key: String,
+    },
+    Candidates {
+        event: Event,
+    },
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

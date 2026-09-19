@@ -1,6 +1,6 @@
 ---
 id: exo-hnil
-status: open
+status: closed
 deps: [exo-5iw6]
 links: []
 created: 2026-09-19T03:37:25Z
@@ -36,3 +36,9 @@ exo-bios demonstrates deliberate reconciliation. exo-fr7t checks process interru
 ## Definitions
 
 Compare-and-swap: update only if the stored version still equals the version the caller read. Linearizable transition: concurrent changes behave as if each took effect at one instant. Immutable record: a memory that was not marked overwritable.
+
+## Notes
+
+**2026-09-19T15:10:50Z**
+
+Implemented transactional compare-and-swap and complete replacement via exoctl; stale conflicts include current metadata at exit 7. Concurrent sessions produce one winner, readers/matchers see complete revisions, failed trigger publication rolls back. Three focused tests and all 26 offline tests pass with fmt/clippy. See verification/SQLITE-UPDATES.md.
