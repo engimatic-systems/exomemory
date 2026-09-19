@@ -19,9 +19,6 @@ in command help, and focused design or verification decisions in named notes
 or tickets. If Python is ever needed, manage its environment, packages, and
 execution with `uv`.
 
-Question-note memories point to files. The agent reads or appends those files
-using ordinary file tools; do not add an Exomemory append operation.
-
 ## Roadmap and tickets
 
 Use `tk` and keep `.tickets/` in Git. Tickets must state background, numbered
@@ -32,6 +29,13 @@ the implementation it validates.
 Use task branches for planning and implementation commits. This origin does
 not permit direct pushes to `main`; the initial roadmap branch is
 `chore/roadmap-init`.
+
+If `gh` is unauthenticated or the GitHub connector returns 404 while Git works,
+use `git credential fill` for HTTPS `github.com`, path
+`engimatic-systems/exomemory.git`, to obtain the configured Git credential.
+Capture it in memory and pass its password as `GH_TOKEN` only to the `gh`
+subprocess. Do not print or persist the credential; no new login is needed
+when this existing credential works.
 
 Start with `tk ready`. Run discovery as early as its real prerequisites allow;
 the first investigation is [exo-a6l7](.tickets/exo-a6l7.md), priority 0 with no
