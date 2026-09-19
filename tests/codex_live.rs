@@ -99,6 +99,8 @@ fn real_luna_reads_unsolicited_preview_then_suppresses_and_resurfaces_after_comp
     fs::create_dir(&codex_home).unwrap();
     fs::create_dir(run.root.join("tmp")).unwrap();
     let hook_config = HookConfig {
+        profile: Default::default(),
+        instructions: None,
         runtime: run.root.clone(),
         scope_root: run.scope.clone(),
         tenant: run.policy.tenant.clone(),
@@ -284,4 +286,181 @@ fn real_luna_reads_unsolicited_preview_then_suppresses_and_resurfaces_after_comp
         }
     }
     fs::write(run.root.join("harness/codex-evidence.json"),serde_json::to_vec_pretty(&json!({"codex":"0.155.1","model":"gpt-5.6-luna","real_inference":true,"full_read_tool_output":true,"before":first,"suppressed":second,"after_compaction":after})).unwrap()).unwrap();
+}
+
+#[test]
+#[ignore = "Runs installed-hook trust and real GPT 5.6 Luna inference in an isolated home"]
+fn installed_hooks_are_trusted_without_bypass_and_luna_uses_the_installed_cli() {
+    use std::io::Write;
+    let run = Run::new();
+    let home = &run.scope;
+    println!("Installed Luna acceptance run: {}", run.root.display());
+    let native = std::env::var("EXOMEMORY_NATIVE_CODEX")
+        .unwrap_or_else(|_| "/opt/homebrew/bin/codex".into());
+    let output = Command::new(env!("CARGO_BIN_EXE_exo-install"))
+        .args([
+            "install",
+            "--home",
+            home.to_str().unwrap(),
+            "--codex",
+            &native,
+            "--no-start",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let runtime = home.join(".local/share/exomemory");
+    let codex_home = home.join(".codex");
+    fs::write(
+        codex_home.join("config.toml"),
+        "model = 'gpt-5.6-luna'\n[features]\nhooks = true\nshell_snapshot = false\n",
+    )
+    .unwrap();
+    let auth = codex_home.join("auth.json");
+    let _auth_cleanup = PrivateAuth(auth.clone());
+    let source = std::env::var_os("CODEX_HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from(std::env::var_os("HOME").unwrap()).join(".codex"));
+    fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(auth)
+        .unwrap()
+        .write_all(&fs::read(source.join("auth.json")).unwrap())
+        .unwrap();
+    let _daemon = HostProcess(
+        Command::new(runtime.join("bin/exod"))
+            .args([
+                "--profile",
+                "local",
+                "--runtime",
+                runtime.to_str().unwrap(),
+                "--scope-root",
+                home.to_str().unwrap(),
+                "--tenant",
+                "personal",
+                "--database",
+                runtime.join("memory.sqlite").to_str().unwrap(),
+                "--socket",
+                runtime.join("exo.sock").to_str().unwrap(),
+            ])
+            .stdout(Stdio::null())
+            .stderr(Stdio::from(
+                fs::File::create(run.root.join("logs/installed-daemon.log")).unwrap(),
+            ))
+            .spawn()
+            .unwrap(),
+    );
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while UnixStream::connect(runtime.join("exo.sock")).is_err() {
+        assert!(Instant::now() < deadline);
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    let mut input = draft(&run);
+    input.body = "INSTALL_FULL_RECORD_MARKER".into();
+    input.blurb = "A stored measurement for the installation trial".into();
+    input.triggers = vec![Trigger::Regex {
+        id: "install-trial".into(),
+        pattern: "(?i)trialprobe".into(),
+    }];
+    let mut create = Command::new(home.join(".local/bin/exoctl"))
+        .args(["create", "--json", "-"])
+        .current_dir(home)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .unwrap();
+    create
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(&serde_json::to_vec(&input).unwrap())
+        .unwrap();
+    let created = create.wait_with_output().unwrap();
+    assert!(
+        created.status.success(),
+        "{}",
+        String::from_utf8_lossy(&created.stdout)
+    );
+    let record: Value = serde_json::from_slice(&created.stdout).unwrap();
+    let key = record["result"]["Ok"]["metadata"]["ghost_key"]
+        .as_str()
+        .unwrap();
+    let path = format!(
+        "{}:{}",
+        home.join(".local/bin").display(),
+        std::env::var("PATH").unwrap()
+    );
+    let child = HostProcess(
+        Command::new(&native)
+            .args([
+                "app-server",
+                "--listen",
+                &format!("unix://{}", runtime.join("codex.sock").display()),
+            ])
+            .env("CODEX_HOME", &codex_home)
+            .env("PATH", &path)
+            .env("EXOMEMORY_HOOK_CONFIG", runtime.join("hook-config.json"))
+            .env("TMPDIR", &run.root)
+            .current_dir(home)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::from(
+                fs::File::create(run.root.join("logs/installed-codex.log")).unwrap(),
+            ))
+            .spawn()
+            .unwrap(),
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_exo-install"))
+        .args(["trust", "--home", home.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stream = UnixStream::connect(runtime.join("codex.sock")).unwrap();
+    let (socket, _) = tungstenite::client("ws://localhost/", stream).unwrap();
+    let mut host = Host {
+        _child: child,
+        socket,
+        transcript: fs::File::create(run.root.join("logs/installed-rpc.jsonl")).unwrap(),
+        observed: Vec::new(),
+    };
+    host.rpc(1,"initialize",json!({"clientInfo":{"name":"installed_trial_test","version":"0.1"},"capabilities":{"experimentalApi":true}}));
+    host.send(json!({"method":"initialized","params":{}}));
+    let listed = host.rpc(2, "hooks/list", json!({"cwds":[home]}));
+    let text = listed.to_string();
+    assert!(
+        !text.contains("\"untrusted\"") && !text.contains("\"modified\""),
+        "{listed}"
+    );
+    let thread=host.rpc(3,"thread/start",json!({"cwd":home,"model":"gpt-5.6-luna","approvalPolicy":"never","sandbox":"danger-full-access","developerInstructions":"This is an isolated installation test. Stay inside the current directory. Do not inspect configuration, databases, or parent directories. Retrieve useful preview data using the installed exoctl command and report the full body marker. Keep the answer short."}));
+    let id = thread["thread"]["id"].clone();
+    host.turn(
+        4,
+        &id,
+        "Use any memory for trialprobe to tell me the saved measurement.",
+    );
+    assert!(
+        host.observed.iter().any(|v| v["method"] == "item/completed"
+            && v["params"]["item"]["type"] == "commandExecution"
+            && v["params"]["item"]["aggregatedOutput"]
+                .as_str()
+                .is_some_and(|s| s.contains("INSTALL_FULL_RECORD_MARKER") && s.contains(key))),
+        "installed CLI did not return full record"
+    );
+    host.rpc(5, "thread/archive", json!({"threadId":id}));
+    for value in &host.observed {
+        if value["method"] == "hook/completed" {
+            assert_eq!(value["params"]["run"]["status"], "completed", "{value}");
+        }
+    }
+    fs::write(run.root.join("harness/installed-evidence.json"),serde_json::to_vec_pretty(&json!({"model":"gpt-5.6-luna","trusted_without_bypass":true,"installed_cli_full_read":true,"hook_definitions":listed})).unwrap()).unwrap();
 }

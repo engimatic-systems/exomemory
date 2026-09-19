@@ -10,7 +10,8 @@ exoctl OPTIONS annoy GHOST_KEY
 
 OPTIONS (all required, before command):
   --runtime DIR --scope-root DIR --socket PATH --tenant ID --session ID --cwd DIR
-Paths must be absolute and confined to one explicit tests/.runtime/ run.
+Paths must be absolute. --profile test (default) confines them to tests/.runtime/.
+--profile local uses an explicit private runtime and permitted directory root.
 Create and overwrite read a complete JSON draft from FILE or stdin (-):
   {"body":"...","blurb":"...","uses":[],"topics":[],
    "triggers":[{"kind":"regex","id":"stable-id","pattern":"test"}],
@@ -19,7 +20,7 @@ Create and overwrite read a complete JSON draft from FILE or stdin (-):
    "provenance":{"origin":"source","actor":"author"},
    "trust":"untrusted","overwritable":true}
 Non-empty validated triggers and an explicit backend are required. Global scope
-is disabled in this test profile. Complete records are returned as tool data.
+is disabled in both profiles. Complete records are returned as tool data.
 
 stdout: one JSON object {"version":1,"result":{"Ok":VALUE}} or
 {"version":1,"result":{"Err":{"code":CODE,"message":TEXT}}}.
@@ -55,6 +56,7 @@ fn run(args: Vec<String>) -> Result<serde_json::Value> {
     let (options, command) = parse_options(
         &args,
         &[
+            "--profile",
             "--runtime",
             "--scope-root",
             "--socket",

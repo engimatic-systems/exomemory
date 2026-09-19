@@ -1,6 +1,6 @@
 use crate::{
     attempts::AttemptStore,
-    policy::Policy,
+    policy::{Policy, Profile},
     render::{Bounds, WRAPPER},
     transport,
     types::*,
@@ -18,6 +18,10 @@ use tungstenite::{Message, WebSocket};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct HookConfig {
+    #[serde(default)]
+    pub profile: Profile,
+    #[serde(default)]
+    pub instructions: Option<String>,
     pub runtime: PathBuf,
     pub scope_root: PathBuf,
     pub tenant: String,
@@ -184,7 +188,10 @@ fn lock(path: &Path) -> Result<File> {
 
 /// Each synchronous hook runs this once; uncertain delivery keeps the committed mark.
 pub fn handle(config: &HookConfig, input: &Value) -> Result<usize> {
-    let policy = Policy::test_profile(&config.runtime, &config.scope_root, config.tenant.clone())?;
+    let policy =
+        config
+            .profile
+            .policy(&config.runtime, &config.scope_root, config.tenant.clone())?;
     let attempts = policy.runtime_path(&config.attempts)?;
     let data_socket = policy.runtime_path(&config.data_socket)?;
     let codex_socket = policy.runtime_path(&config.codex_socket)?;

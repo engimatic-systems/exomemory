@@ -5,12 +5,20 @@ use exomemory::{
 use std::io::Read;
 
 fn run() -> Result<()> {
-    let args: Vec<_> = std::env::args().skip(1).collect();
+    let mut args: Vec<_> = std::env::args().skip(1).collect();
     if args == ["help"] || args == ["--help"] {
         println!(
-            "exo-codex-hook --config FILE\nRead one Codex 0.155.1 hook JSON object from stdin. FILE contains explicit runtime, scope_root, tenant, data_socket, codex_socket, attempts and bounds. All paths stay inside one tests/.runtime run. The host must expose a local Unix WebSocket App Server socket and use synchronous hooks. All eleven lifecycle hooks use this command; only PostCompact clears attempts. Delivery is best effort with no retry. stdout is an empty hook response; failures go to stderr. Use gpt-5.6-luna for live inference."
+            "exo-codex-hook --config FILE | --env\nRead one Codex 0.155.1 hook JSON object from stdin. FILE contains explicit runtime, scope_root, tenant, data_socket, codex_socket, attempts and bounds. The default test profile confines paths to tests/.runtime; local must be selected explicitly. --env reads EXOMEMORY_HOOK_CONFIG or returns an empty response when absent. The host must expose a local Unix WebSocket App Server socket and use synchronous hooks. All eleven lifecycle hooks use this command; only PostCompact clears attempts. Delivery is best effort with no retry. stdout preserves ordinary hook decisions; optional configured SessionStart instructions explain the installed CLI. Failures go to stderr. Use gpt-5.6-luna for live inference."
         );
         return Ok(());
+    }
+    // Global definitions are inert outside the installed host, which sets this variable.
+    if args == ["--env"] {
+        let Ok(path) = std::env::var("EXOMEMORY_HOOK_CONFIG") else {
+            println!("{{}}");
+            return Ok(());
+        };
+        args = vec!["--config".into(), path];
     }
     let [flag, path] = args.as_slice() else {
         return Err(Error::new(
@@ -34,8 +42,13 @@ fn run() -> Result<()> {
     }
     let input = serde_json::from_slice(&bytes)?;
     let result = handle(&config, &input);
-    // An empty response preserves the host's ordinary permission and stop behavior.
-    println!("{{}}");
+    // Startup guidance explains the installed CLI; other events preserve ordinary hook decisions.
+    let response = if input["hook_event_name"] == "SessionStart" {
+        config.instructions.as_ref().map(|text| serde_json::json!({"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":text}})).unwrap_or_else(|| serde_json::json!({}))
+    } else {
+        serde_json::json!({})
+    };
+    println!("{response}");
     result.map(|_| ())
 }
 fn main() {
