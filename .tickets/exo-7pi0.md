@@ -1,7 +1,7 @@
 ---
 id: exo-7pi0
-status: open
-deps: []
+status: in_progress
+deps: [exo-adfe]
 links: []
 created: 2026-09-19T04:09:30Z
 type: task
@@ -34,3 +34,9 @@ exo-dcwx consumes the verified interface. exo-a81g includes its real-host accept
 ## Definitions
 
 RPC: a request to another process. Event barrier: a point where the host waits before continuing. Eviction: removal from live model input. Idempotency identity: a stable request ID that prevents a retry from inserting twice.
+
+## Notes
+
+**2026-09-19T14:21:52Z**
+
+Expanded the pinned 0.155.1 Rust probe: injection accepts unsupported condition and delivery identity fields, including a repeated identity, with empty acknowledgments. Current compaction items expose only id/type. See verification/CODEX-HOST-CONTRACT.md for evidence, limits, and the concrete extension. All-event barriers and compaction survivors remain unverified, so this ticket stays incomplete. exo-adfe tracks the host implementation; a human must choose a maintained project build or an upstream dependency.

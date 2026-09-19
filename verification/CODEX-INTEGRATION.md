@@ -1,5 +1,10 @@
 # Codex integration decision — 0.155.1
 
+The follow-up [host contract investigation](CODEX-HOST-CONTRACT.md) adds an
+executable negative capability check, specifies the required host extension,
+and records the host-distribution decision needed for exo-adfe. Exact presence
+remains unsupported; exo-7pi0, exo-dcwx, and M3 remain incomplete.
+
 Tested 2026-09-19 with installed `codex-cli 0.155.1` on macOS arm64.
 Run `cargo run --manifest-path tests/probes/codex/Cargo.toml --target-dir target/probes`.
 The Rust probe creates a unique `tests/.runtime/codex-*` directory, generates
