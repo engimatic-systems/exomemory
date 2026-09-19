@@ -1,7 +1,7 @@
 ---
 id: exo-dcwx
 status: open
-deps: [exo-a6l7, exo-5iw6]
+deps: [exo-a6l7, exo-5iw6, exo-7pi0]
 links: []
 created: 2026-09-19T03:37:25Z
 type: task
@@ -36,3 +36,11 @@ exo-a81g includes the real-harness evidence in SQLite acceptance. exo-1izl reuse
 ## Definitions
 
 Adapter: a thin translation layer between host events and the application's shared protocol. Unsolicited ghost: a preview surfaced by a matching event without an explicit memory read request.
+
+## Version-specific implementation evidence
+
+Use the 0.155.1 stdio App Server path in verification/CODEX-INTEGRATION.md.
+The isolated Rust probe confirms thread creation and experimental item
+injection, but not authoritative presence. exo-7pi0 must supply and verify
+synchronous event barriers and a host-owned occurrence snapshot with
+conditional insertion before this adapter can meet its acceptance criteria.
