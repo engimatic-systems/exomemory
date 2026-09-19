@@ -1,7 +1,7 @@
 ---
 id: exo-fq27
 status: open
-deps: [exo-a81g]
+deps: [exo-a81g, exo-9tjp]
 links: []
 created: 2026-09-19T03:37:24Z
 type: epic
@@ -21,14 +21,15 @@ A controlled harness proves the application logic, but real use also requires ve
 2. Storage and delivery remain correct under the failure and concurrency cases in exo-fr7t.
 3. The acceptance checks in exo-a81g pass and identify the tested harness version and remaining product limitations.
 4. The milestone remains open until real-host delivery and completed-compaction reset are verified. Missed previews and repetition across compactions are accepted; exact live presence is not required.
+5. The standalone interface revisions in exo-9tjp pass their installed-path acceptance gate before the milestone closes.
 
 ## Methodological Suggestions — HOW
 
-These are suggestions; another sound method is acceptable. Start the capability investigation exo-a6l7 early. Use its evidence to implement exo-dcwx; complete the SQLite feedback milestone before final acceptance.
+These are suggestions; another sound method is acceptable. Start the capability investigation exo-a6l7 early. Use its evidence to implement exo-dcwx; complete the SQLite feedback milestone before final acceptance. Run exo-9tjp after the initial installed-path evidence so its migration fixture covers the tested shell-wrapper layout.
 
 ## Future work
 
-exo-fsde is the explicitly deferred expansion backlog after this SQLite acceptance gate.
+exo-fsde is the explicitly deferred expansion backlog after this SQLite acceptance gate. exo-qvzg is a nonblocking Pi integration discovery under that backlog.
 
 ## Definitions
 
