@@ -1,6 +1,6 @@
 ---
 id: exo-aqd9
-status: open
+status: closed
 deps: [exo-sjlw]
 links: []
 created: 2026-09-19T03:37:24Z
@@ -36,3 +36,9 @@ exo-jtv5 uses render eligibility before ranking. exo-dcwx maps the data envelope
 ## Definitions
 
 Envelope: the structure that separates retrieved fields from the surrounding explanation. Serialized representation: the exact encoded output sent to the harness. Authority boundary: the distinction between trusted instructions and retrieved data. Token budget: an allowance measured in model text tokens; this design instead uses fixed conservative bounds.
+
+## Notes
+
+**2026-09-19T04:25:47Z**
+
+Added typed untrusted-memory JSON-line rendering with provenance, one fixed interpretation wrapper, explicit occurrence IDs and exact final byte checks including delimiters and escaping. Private rendered bytes are reused for delivery. Configuration uses checked arithmetic for live count, per-ghost, wrapper and declared envelope bounds. Tests round-trip hostile role delimiters, quotes, controls and multibyte text, and cover exact limits, escaping expansion, invalid wrappers and arithmetic overflow. Formatting, clippy and rendering tests pass.
