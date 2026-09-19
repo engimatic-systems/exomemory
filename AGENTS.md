@@ -106,3 +106,21 @@ using its recorded commands. The existing model checks run with
 `./verification/run-models.sh`; expected counterexamples must still fail for
 their intended invariants and the finalized configurations must pass.
 Add concrete Rust and demo commands here when their tickets deliver them.
+
+## Rust commands and local boundaries
+
+Run `cargo fmt --all -- --check`,
+`cargo clippy --workspace --all-targets -- -D warnings`, and
+`cargo test --workspace` from the repository root. Run artifacts are retained
+in unique `tests/.runtime/r*` directories for inspection. The test helper
+creates scope, log, and harness directories there; no fallback is allowed.
+Discovery probes have separate manifests under `tests/probes/` and are not
+registered application backends. Their commands are in
+`verification/CODEX-INTEGRATION.md` and `verification/ZVEC-SNAPSHOTS.md`.
+
+The first profile requires an explicit existing runtime directory, permitted
+scope root and tenant. Paths must be absolute and contain no parent traversal;
+resolved directory boundaries govern access. Tests own their runtime trees;
+concurrent hostile filesystem mutation is outside this local controlled
+profile. The daemon must bind requests to its configured tenant and apply
+this same policy at each operation, including metadata and candidates.
