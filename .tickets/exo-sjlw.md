@@ -1,6 +1,6 @@
 ---
 id: exo-sjlw
-status: open
+status: closed
 deps: []
 links: []
 created: 2026-09-19T03:37:24Z
@@ -36,3 +36,9 @@ exo-b12v implements transactions; exo-ljge connects the daemon and client; exo-h
 ## Definitions
 
 Cargo: Rust's build and dependency manager. Tenancy: the ownership boundary used to permit memory access. Provenance: information about where a memory came from. Trust classification: a typed label describing how retrieved data must be treated. Logical event number: an ordered counter of harness events. Symlink: a filesystem link that can redirect a path.
+
+## Notes
+
+**2026-09-19T04:16:31Z**
+
+Established the Rust workspace, versioned shared protocol and internal storage boundary, bundled rusqlite, explicit isolated profile, and reusable run helper. Shared creation/replacement scope policy rejects global scope and escaping paths; access reuses it for reads and surfacing. Two integration tests cover unique runs, traversal, sibling prefixes, tenant boundaries and symlink escapes. cargo fmt --all -- --check, cargo clippy --workspace --all-targets -- -D warnings and cargo test --workspace pass. Commands and controlled-filesystem boundary are in AGENTS.md.
