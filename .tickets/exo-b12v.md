@@ -1,6 +1,6 @@
 ---
 id: exo-b12v
-status: open
+status: closed
 deps: [exo-sjlw]
 links: []
 created: 2026-09-19T03:37:24Z
@@ -36,3 +36,9 @@ exo-ljge exposes create and read to exoctl. exo-mkyx adds trigger queries. exo-h
 ## Definitions
 
 Canonical state: the authoritative stored record. Transaction: a group of database changes that commits entirely or has no effect. Atomic publication: making every part of a revision visible at once. Schema migration: a versioned change to database structure. Durable outbox: stored pending work used to coordinate an external storage system.
+
+## Notes
+
+**2026-09-19T04:18:41Z**
+
+Implemented bundled rusqlite schema migration 1 and complete revision publication in one immediate transaction, including trigger rows and a canonical state version. Reads enforce shared tenancy/scope policy. An injected SQLite trigger failure after body insertion rolls back all canonical tables; reopening preserves committed full records. Capability flags identify unsupported operations. Formatting, clippy with warnings denied, and all four workspace integration tests pass.

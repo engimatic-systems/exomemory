@@ -35,3 +35,28 @@ impl Run {
         }
     }
 }
+pub fn draft(run: &Run) -> Draft {
+    Draft {
+        body: "The test suite took 12 seconds.".into(),
+        blurb: "Test suite: 12 seconds".into(),
+        uses: vec!["plan tests".into()],
+        topics: vec!["testing".into()],
+        triggers: vec![Trigger::Regex {
+            id: "test-duration".into(),
+            pattern: "(?i)test".into(),
+        }],
+        backend: Backend {
+            kind: "sqlite".into(),
+            instance: "local".into(),
+        },
+        scope: Scope::Dir {
+            root: run.scope.clone(),
+        },
+        provenance: Provenance {
+            origin: "synthetic fixture".into(),
+            actor: "controlled harness".into(),
+        },
+        trust: Trust::Untrusted,
+        overwritable: true,
+    }
+}
