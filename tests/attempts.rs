@@ -18,6 +18,7 @@ fn candidates(run: &Run, keys: &[&str]) -> CandidateSnapshot {
                     relevance_band: 0,
                     backend_rank: 0,
                     penalty: 0,
+                    feedback_version: 0,
                 }
             })
             .collect(),

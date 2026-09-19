@@ -19,6 +19,7 @@ fn candidate(run: &Run, key: &str, source: &str) -> Candidate {
         relevance_band: 0,
         backend_rank: 0,
         penalty: 0,
+        feedback_version: 0,
     }
 }
 fn empty() -> AttemptState {

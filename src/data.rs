@@ -11,6 +11,9 @@ pub trait Storage {
     fn capabilities(&self) -> Capabilities;
     fn create(&mut self, policy: &Policy, context: &Context, draft: Draft) -> Result<Record>;
     fn read(&mut self, policy: &Policy, context: &Context, key: &str) -> Result<Record>;
+    fn annoy(&mut self, _policy: &Policy, _context: &Context, _key: &str) -> Result<Feedback> {
+        Err(Error::new(ErrorCode::Unsupported, "feedback unavailable"))
+    }
     fn overwrite(
         &mut self,
         _policy: &Policy,
