@@ -160,3 +160,13 @@ pub fn ctl(
         serde_json::from_slice(&output.stdout).unwrap(),
     )
 }
+pub fn event(run: &Run, number: u64, presence_version: u64) -> Event {
+    Event {
+        context: run.context.clone(),
+        live_context: "main".into(),
+        number,
+        presence_version,
+        kind: EventKind::Prompt,
+        text: "Run the test suite".into(),
+    }
+}

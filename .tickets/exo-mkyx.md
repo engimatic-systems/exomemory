@@ -1,6 +1,6 @@
 ---
 id: exo-mkyx
-status: open
+status: closed
 deps: [exo-b12v]
 links: []
 created: 2026-09-19T03:37:24Z
@@ -37,3 +37,9 @@ exo-jtv5 applies the cross-candidate ordering and source limits. exo-6g4f versio
 ## Definitions
 
 Regex: a regular expression used to match text. SQL: the query language used by SQLite. Parameterized query: SQL with separate bound input values. Snapshot: a consistent view of committed state. Relevance band: an ordered relevance category, not a score compared across backends. Source pair: backend instance plus trigger identifier. read_token_estimate: an approximate count of model text tokens needed to retrieve the full record.
+
+## Notes
+
+**2026-09-19T04:24:07Z**
+
+Implemented regex normalization and validated parameters, stable source IDs, read-only parameterized candidate SQL and one committed snapshot/version per query. Scope filtering precedes result exposure; duplicate matches remain explicit for App Server collapse. Full-record UTF-8 JSON bytes/4 is the documented deterministic read-cost approximation. Tests cover repeatability, duplicate triggers, invalid regex, SQL-like event text, scope boundaries, normalization and failed publication. Formatting, clippy -D warnings and candidate tests pass.

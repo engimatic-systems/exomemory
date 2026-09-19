@@ -90,7 +90,7 @@ impl Storage for Sqlite {
             create: true,
             overwrite: false,
             feedback: false,
-            candidates: false,
+            candidates: true,
         }
     }
     fn create(&mut self, policy: &Policy, context: &Context, mut draft: Draft) -> Result<Record> {
@@ -161,5 +161,84 @@ impl Storage for Sqlite {
         )?;
         policy.access(context, &record.metadata.tenant, &record.metadata.scope)?;
         Ok(record)
+    }
+
+    fn candidates(&mut self, policy: &Policy, event: &Event) -> Result<CandidateSnapshot> {
+        policy.context(&event.context)?;
+        if event.text.len() > MAX_RECORD_BYTES {
+            return Err(Error::new(ErrorCode::InvalidInput, "event text too large"));
+        }
+        let text = event.text.replace("\r\n", "\n").replace('\r', "\n");
+        let tx = self.connection.transaction()?;
+        // This first SELECT pins the snapshot for the entire matching/query pass.
+        let state_version = tx.query_row(
+            "SELECT version FROM store_state WHERE singleton=1",
+            [],
+            |r| r.get::<_, i64>(0),
+        )? as u64;
+        let triggers = {
+            let mut query = tx.prepare("SELECT t.ghost_key,t.trigger_id,t.pattern FROM triggers t JOIN memories m ON m.ghost_key=t.ghost_key AND m.current_revision=t.revision JOIN revisions r ON r.ghost_key=t.ghost_key AND r.revision=t.revision WHERE json_extract(r.record_json,'$.metadata.tenant')=?1 ORDER BY t.ghost_key,t.trigger_id")?;
+            query
+                .query_map(params![event.context.tenant], |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, String>(2)?,
+                    ))
+                })?
+                .collect::<std::result::Result<Vec<_>, _>>()?
+        };
+        let mut candidates = Vec::new();
+        let mut ranks = std::collections::BTreeMap::<SourceId, u64>::new();
+        for (key, trigger, pattern) in triggers {
+            let regex = regex::RegexBuilder::new(&pattern)
+                .size_limit(1024 * 1024)
+                .build()
+                .map_err(|e| {
+                    Error::new(ErrorCode::Internal, format!("stored regex invalid: {e}"))
+                })?;
+            if !regex.is_match(&text) {
+                continue;
+            }
+            // Built-in read-only template. Neither event text nor a pattern is SQL syntax.
+            let json: String = tx.query_row("SELECT r.record_json FROM revisions r JOIN memories m ON m.ghost_key=r.ghost_key AND m.current_revision=r.revision JOIN triggers t ON t.ghost_key=r.ghost_key AND t.revision=r.revision WHERE r.ghost_key=?1 AND t.trigger_id=?2 AND json_extract(r.record_json,'$.metadata.tenant')=?3 ORDER BY r.ghost_key,r.revision", params![key,trigger,event.context.tenant], |r| r.get(0))?;
+            let metadata = decode_record(&json)?.metadata;
+            if policy
+                .access(&event.context, &metadata.tenant, &metadata.scope)
+                .is_err()
+            {
+                continue;
+            }
+            let source = SourceId {
+                backend: format!("{}/{}", metadata.backend.kind, metadata.backend.instance),
+                trigger,
+            };
+            let rank = ranks.entry(source.clone()).or_default();
+            let ghost = Ghost {
+                ghost_key: metadata.ghost_key,
+                revision: metadata.revision,
+                blurb: metadata.blurb,
+                uses: metadata.uses,
+                topics: metadata.topics,
+                read_token_estimate: metadata.read_token_estimate,
+                source_id: source,
+                provenance: metadata.provenance,
+                trust: metadata.trust,
+            };
+            candidates.push(Candidate {
+                ghost,
+                tenant: metadata.tenant,
+                scope: metadata.scope,
+                relevance_band: 0,
+                backend_rank: *rank,
+                penalty: metadata.penalty,
+            });
+            *rank += 1;
+        }
+        tx.commit()?;
+        Ok(CandidateSnapshot {
+            state_version,
+            candidates,
+        })
     }
 }
