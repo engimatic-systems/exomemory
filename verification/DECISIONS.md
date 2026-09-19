@@ -4,7 +4,7 @@ Recorded from the submitted review form on 2026-09-18.
 
 1. **Atomic publication:** store a complete revision and expose it atomically;
    use an outbox when an external backend participates.
-2. **Concurrent writers:** `xo overwrite` uses compare-and-swap revisions and
+2. **Concurrent writers:** `exoctl overwrite` uses compare-and-swap revisions and
    returns an explicit conflict rather than silently losing an update.
 3. **Context presence:** the harness owns an authoritative live-context ledger
    and reports compaction. Cooldown is rate limiting, not deduplication truth.

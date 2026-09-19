@@ -1,6 +1,6 @@
 # Data Service
 
-The Data Service is a persistent daemon that accepts normalized read and write requests, brokers connections to storage backends, and supplies ghost candidates to the App Server. It responds to the App Server with candidate records and to `xo` with read, creation, feedback, and conditional-overwrite results.
+The Data Service is a persistent daemon that accepts normalized read and write requests, brokers connections to storage backends, and supplies ghost candidates to the App Server. It responds to the App Server with candidate records and to `exoctl` with read, creation, feedback, and conditional-overwrite results.
 
 The implementation should probably be written in Rust for low latency. It must handle multiple concurrent connections, but concurrency must not expose partial records or silently lose accepted writes.
 
@@ -39,7 +39,7 @@ If a backend is retrieval-only—for example, one that searches local files usin
 
 ## Initial backends
 
-- `SQLite`: triggers run SQL queries for candidates; `xo` reads return a row.
-- `zvec`: triggers run deterministic, snapshot-bound vector similarity searches; `xo` reads return the referenced data.
-- `redis`: triggers run key-value queries that return a candidate; `xo` reads return the full value.
-- `episodic-SQLite`: triggers query by date or event; `xo` reads can return events before, after, or during the referenced event.
+- `SQLite`: triggers run SQL queries for candidates; `exoctl` reads return a row.
+- `zvec`: triggers run deterministic, snapshot-bound vector similarity searches; `exoctl` reads return the referenced data.
+- `redis`: triggers run key-value queries that return a candidate; `exoctl` reads return the full value.
+- `episodic-SQLite`: triggers query by date or event; `exoctl` reads can return events before, after, or during the referenced event.

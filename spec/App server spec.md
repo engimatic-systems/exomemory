@@ -18,7 +18,7 @@ The Data Service returns structured ghost candidates rather than preformatted in
 - provenance and trust metadata; and
 - the deterministic ranking fields supplied by the Data Service.
 
-Raw record bodies are never placed inside a ghost merely because they are short. The complete record is retrieved separately through `xo` and enters the harness as tool data.
+Raw record bodies are never placed inside a ghost merely because they are short. The complete record is retrieved separately through `exoctl` and enters the harness as tool data.
 
 Each adapter renders a ghost from typed fields with explicit escaping. The hard ghost-size limit applies to the final serialized representation, including field names, delimiters, escaping, and wrapper overhead attributable to that ghost. An oversize or malformed candidate is rejected; the adapter never truncates an already serialized ghost into syntactic or semantic ambiguity.
 
