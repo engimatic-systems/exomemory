@@ -1,6 +1,6 @@
 ---
 id: exo-fr7t
-status: open
+status: closed
 deps: [exo-190g]
 links: []
 created: 2026-09-19T03:37:25Z
@@ -36,3 +36,9 @@ exo-a81g makes the recovery checks part of acceptance. exo-fsde handles operatio
 ## Definitions
 
 Contention: multiple operations competing for database access. Busy handling: how the service retries or rejects a temporarily locked database. Uncertain result: a disconnected caller cannot yet know whether its write committed. Fault point: a controlled place to interrupt execution.
+
+## Notes
+
+**2026-09-19T15:20:49Z**
+
+Seven recovery test entries pass (including subprocess helper): kills before/after create and overwrite commits, kill after attempt mark, lost committed response with stale retry, mixed concurrent operations, bounded busy rejection, snapshot exhaustion rollback, active/regular/stale endpoints. Existing attempt/adapter tests cover duplicate events, caps and failed sends. Fault callbacks are absent from production builds. See verification/SQLITE-RECOVERY.md. Formatting/clippy pass.
