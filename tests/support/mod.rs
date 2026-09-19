@@ -170,3 +170,29 @@ pub fn event(run: &Run, number: u64, presence_version: u64) -> Event {
         text: "Run the test suite".into(),
     }
 }
+pub fn bounds() -> exomemory::render::Bounds {
+    exomemory::render::Bounds {
+        max_live: 3,
+        max_ghost_bytes: 2048,
+        max_wrapper_bytes: 512,
+        context_envelope_bytes: 8192,
+        per_source: 1,
+        cooldown_events: 2,
+    }
+}
+pub fn ghost(run: &Run) -> Ghost {
+    Ghost {
+        ghost_key: "fixture-key".into(),
+        revision: 1,
+        blurb: "Test suite: 12 seconds".into(),
+        uses: vec![],
+        topics: vec![],
+        read_token_estimate: 10,
+        source_id: SourceId {
+            backend: "sqlite/local".into(),
+            trigger: "test-duration".into(),
+        },
+        provenance: draft(run).provenance,
+        trust: Trust::Untrusted,
+    }
+}
