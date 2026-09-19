@@ -8,6 +8,9 @@ use std::{collections::BTreeSet, path::Path, time::Duration};
 pub const MAX_RECORD_BYTES: usize = 1024 * 1024;
 pub struct Sqlite {
     pub(crate) connection: Connection,
+    // Test subprocesses can pause at commit boundaries; production builds omit this.
+    #[cfg(test)]
+    pub(crate) fault: Option<fn(&str)>,
 }
 impl Sqlite {
     pub fn open(policy: &Policy, path: &Path) -> Result<Self> {
@@ -33,7 +36,11 @@ impl Sqlite {
             transaction.execute_batch(include_str!("../migrations/003_feedback.sql"))?;
         }
         transaction.commit()?;
-        Ok(Self { connection })
+        Ok(Self {
+            connection,
+            #[cfg(test)]
+            fault: None,
+        })
     }
     pub fn state_version(&self) -> Result<u64> {
         Ok(self.connection.query_row(
@@ -85,6 +92,21 @@ pub(crate) fn validate_draft(policy: &Policy, context: &Context, draft: &mut Dra
 pub(crate) fn decode_record(json: &str) -> Result<Record> {
     serde_json::from_str(json)
         .map_err(|e| Error::new(ErrorCode::Internal, format!("invalid stored record: {e}")))
+}
+fn advance_snapshot(connection: &Connection) -> Result<i64> {
+    // Refuse exhaustion instead of allowing SQLite to promote an overflowing integer to REAL.
+    let changed=connection.execute("UPDATE store_state SET version=version+1 WHERE singleton=1 AND version<9223372036854775807",[])?;
+    if changed != 1 {
+        return Err(Error::new(
+            ErrorCode::Conflict,
+            "snapshot version exhausted",
+        ));
+    }
+    Ok(connection.query_row(
+        "SELECT version FROM store_state WHERE singleton=1",
+        [],
+        |r| r.get(0),
+    )?)
 }
 fn estimate(record: &mut Record) -> Result<()> {
     // Deterministic UTF-8 byte/4 approximation of full JSON retrieval.
@@ -178,11 +200,16 @@ impl Storage for Sqlite {
                 params![key, id, pattern],
             )?;
         }
-        tx.execute(
-            "UPDATE store_state SET version=version+1 WHERE singleton=1",
-            [],
-        )?;
+        advance_snapshot(&tx)?;
+        #[cfg(test)]
+        if let Some(fault) = self.fault {
+            fault("before_create_commit");
+        }
         tx.commit()?;
+        #[cfg(test)]
+        if let Some(fault) = self.fault {
+            fault("after_create_commit");
+        }
         Ok(record)
     }
     fn read(&mut self, policy: &Policy, context: &Context, key: &str) -> Result<Record> {
@@ -257,11 +284,16 @@ impl Storage for Sqlite {
                 "revision changed inside write transaction",
             ));
         }
-        tx.execute(
-            "UPDATE store_state SET version=version+1 WHERE singleton=1",
-            [],
-        )?;
+        advance_snapshot(&tx)?;
+        #[cfg(test)]
+        if let Some(fault) = self.fault {
+            fault("before_overwrite_commit");
+        }
         tx.commit()?;
+        #[cfg(test)]
+        if let Some(fault) = self.fault {
+            fault("after_overwrite_commit");
+        }
         Ok(record)
     }
 
@@ -283,15 +315,7 @@ impl Storage for Sqlite {
             "UPDATE feedback SET penalty=?2,version=?3 WHERE ghost_key=?1",
             params![key, penalty, version as i64],
         )?;
-        tx.execute(
-            "UPDATE store_state SET version=version+1 WHERE singleton=1",
-            [],
-        )?;
-        let state_version: i64 = tx.query_row(
-            "SELECT version FROM store_state WHERE singleton=1",
-            [],
-            |r| r.get(0),
-        )?;
+        let state_version = advance_snapshot(&tx)?;
         let cwd = policy.context(context)?;
         // Even a saturated request gets an ordered attribution entry, not another increment.
         tx.execute(

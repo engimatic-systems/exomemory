@@ -164,3 +164,10 @@ It uses exod/exoctl to race two updates, return current metadata to the stale
 writer, reconcile deliberately, apply feedback, and restart the daemon. Its
 `harness/m2-evidence.json` includes before/after snapshots for deterministic
 selection replay. Focused checks are `cargo test --test overwrite --test feedback`.
+
+Recovery checks run with `cargo test --test recovery -- --nocapture`.
+They kill test workers at publication/attempt commit boundaries, reopen through
+the real daemon, drop an acknowledged write response, and check mixed clients,
+bounded SQLite contention, version exhaustion and endpoint handling. See
+`verification/SQLITE-RECOVERY.md` for fault schedules and the difference between
+SQLite busy timeout and aggregate queued-request latency.

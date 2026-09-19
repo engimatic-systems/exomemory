@@ -58,7 +58,18 @@ impl From<serde_json::Error> for Error {
 }
 impl From<rusqlite::Error> for Error {
     fn from(e: rusqlite::Error) -> Self {
-        Self::new(ErrorCode::Internal, e.to_string())
+        let code = match &e {
+            rusqlite::Error::SqliteFailure(error, _)
+                if matches!(
+                    error.code,
+                    rusqlite::ErrorCode::DatabaseBusy | rusqlite::ErrorCode::DatabaseLocked
+                ) =>
+            {
+                ErrorCode::Unavailable
+            }
+            _ => ErrorCode::Internal,
+        };
+        Self::new(code, e.to_string())
     }
 }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
