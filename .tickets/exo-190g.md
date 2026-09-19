@@ -1,6 +1,6 @@
 ---
 id: exo-190g
-status: open
+status: closed
 deps: [exo-bios]
 links: []
 created: 2026-09-19T03:37:24Z
@@ -33,3 +33,9 @@ exo-fq27 adds real harness acceptance and failure recovery evidence. exo-fsde co
 ## Definitions
 
 Revision: an identifiable complete version of a memory. Ranking penalty: a non-negative number that moves a memory later within otherwise equal ranking fields. Machine-readable conflict: a structured error that a program can recognize and reconcile.
+
+## Notes
+
+**2026-09-19T15:16:01Z**
+
+M2 criteria and dependencies satisfied: exo-hnil, exo-6g4f and exo-bios closed with implementation and actual process-level demo evidence. See verification/SQLITE-UPDATES.md.
