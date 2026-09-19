@@ -1,6 +1,6 @@
 ---
 id: exo-5iw6
-status: open
+status: closed
 deps: [exo-lm9g]
 links: []
 created: 2026-09-19T03:37:24Z
@@ -33,3 +33,9 @@ exo-190g adds conditional updates and feedback. exo-fq27 completes real Codex in
 ## Definitions
 
 Vertical slice: a small working path through every required layer. Ghost: a short preview that advertises a separately retrieved memory. exoctl: the command-line client. rusqlite: the Rust SQLite library at https://github.com/rusqlite/rusqlite. Plugin: a storage implementation behind an internal interface.
+
+## Notes
+
+**2026-09-19T04:34:50Z**
+
+M1 acceptance audit passed; see verification/M1-ACCEPTANCE.md for each milestone and demonstration criterion mapped to executable evidence. exo-lm9g and all prerequisites are closed. The running SQLite daemon, exoctl and controlled Rust harness complete the create-to-ghost-to-read loop while preserving atomic publication, revision agreement, deterministic selection, serialized bounds and authoritative presence. Real Codex acceptance remains tracked under exo-dcwx/exo-7pi0 and is not claimed.
