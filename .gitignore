@@ -2,3 +2,17 @@
 /verification/.tools/
 /verification/.tlc/
 /verification/results/*.log
+
+# Rust build and coverage output; keep Cargo.lock version-controlled.
+target/
+/coverage/
+*.profraw
+*.profdata
+
+# Disposable test databases, SQLite journals, sockets, logs, and large traces.
+/tests/.runtime/
+/tests/artifacts/
+
+# Optional Python tooling must use uv; environments and caches are disposable.
+.venv/
+__pycache__/
