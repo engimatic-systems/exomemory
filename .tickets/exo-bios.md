@@ -1,6 +1,6 @@
 ---
 id: exo-bios
-status: open
+status: closed
 deps: [exo-hnil, exo-6g4f]
 links: []
 created: 2026-09-19T03:37:25Z
@@ -35,3 +35,9 @@ exo-a81g uses this scenario in final SQLite acceptance. exo-fr7t adds failure in
 ## Definitions
 
 Reconciliation: intentionally combining a proposed change with newly read current data. Equally relevant: candidates sharing the same relevance band and preceding ranking fields.
+
+## Notes
+
+**2026-09-19T15:16:01Z**
+
+Actual daemon and exoctl demo passes across two named concurrent sessions: one winner, stale conflict, explicit reconciliation to revision 3, annoy changes ordering without changing matches, source quota preserved, restart and saved-snapshot replay agree. Command cargo test --test m2 -- --nocapture; evidence tests/.runtime/r27eb7b0dc9f8/harness/m2-evidence.json. Formatting and clippy pass.

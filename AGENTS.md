@@ -158,3 +158,9 @@ isolated run and removed afterward. It verifies unsolicited preview delivery,
 exoctl full reads, attempt suppression, PostCompact reset, and resurfacing.
 `verification/CODEX-ACCEPTANCE.md` records configuration, evidence, and limits.
 `cargo test --test codex_adapter` runs the offline adapter regression tests.
+
+The M2 concurrent-session demo is `cargo test --test m2 -- --nocapture`.
+It uses exod/exoctl to race two updates, return current metadata to the stale
+writer, reconcile deliberately, apply feedback, and restart the daemon. Its
+`harness/m2-evidence.json` includes before/after snapshots for deterministic
+selection replay. Focused checks are `cargo test --test overwrite --test feedback`.

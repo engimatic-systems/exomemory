@@ -44,3 +44,14 @@ JSON stores the feedback snapshot at publication; the feedback table is the
 source of truth for current reads. `tests/feedback.rs` covers migration,
 snapshot replay, restart, overwrite preservation, eight concurrent increments,
 saturation, attribution, rollback and authorization. Thirty offline tests pass.
+
+## M2 acceptance
+
+`cargo test --test m2 -- --nocapture` runs real exod/exoctl clients in two named
+sessions against one isolated run. Both read revision 1, race different complete
+updates, and get one success and one explicit conflict. The losing session reads
+the winner and deliberately combines its data with a later measurement in
+revision 3. Two matching memories then demonstrate quota-respecting selection
+before and after feedback. Restart preserves revisions and feedback; saved
+snapshots replay both selections. The initial passing run was
+`tests/.runtime/r27eb7b0dc9f8`; every run writes `harness/m2-evidence.json`.
