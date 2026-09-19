@@ -37,3 +37,10 @@ exo-03m1 and exo-upbn supply concrete idempotent external operations. exo-1izl v
 ## Definitions
 
 Durable outbox: database records describing external work that survives a restart. Pending revision: a complete proposed version hidden until external work is confirmed. Idempotent: safe to repeat without changing the intended effect. Compare-and-swap: publish only if the expected current revision still matches. Test double: a controlled substitute used to exercise an interface.
+
+## External revision evidence
+
+verification/ZVEC-SNAPSHOTS.md demonstrates a separate pending generation
+while the ready generation continues returning its old full bodies. Use
+immutable generation references, reader retention, and conditional ready-pointer
+publication for zvec; never overwrite a published collection in place.

@@ -1,6 +1,6 @@
 ---
 id: exo-pw6d
-status: open
+status: closed
 deps: []
 links: []
 created: 2026-09-19T03:49:33Z
@@ -36,3 +36,9 @@ exo-upbn implements the chosen route. exo-3m9v uses the external revision requir
 ## Definitions
 
 zvec: the vector-search backend named in the spec, whose precise integration must be established here. Embedding: a numeric representation used for similarity search. Snapshot: a fixed indexed view. Metric: the rule for measuring similarity. Provenance: the source and version of data or an embedding. Immutable reference: a reference to data that is not changed in place.
+
+## Notes
+
+**2026-09-19T04:13:44Z**
+
+Completed Rust-only zvec-rust 0.7.1 probe: 300 identical Flat L2 queries across three read-only opens, revision-bound full reads, deterministic ties, and a separate pending replacement invisible to ready readers. Native binary identity and integration constraints are recorded in verification/ZVEC-SNAPSHOTS.md and downstream tickets. Formatting and clippy -D warnings passed.

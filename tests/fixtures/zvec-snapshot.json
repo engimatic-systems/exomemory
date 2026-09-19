@@ -1,0 +1,1 @@
+{"schema":1,"sdk":"0.7.1","index":"flat","metric":"squared_l2","normalization":"none","query":[1.0,0.0],"max_distance":2.0,"rows":[{"key":"a","revision":1,"body":"alpha revision one","vector":[1.0,0.0]},{"key":"b","revision":1,"body":"beta revision one","vector":[0.0,1.0]},{"key":"c","revision":2,"body":"gamma revision two","vector":[0.0,1.0]}]}
