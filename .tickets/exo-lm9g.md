@@ -1,6 +1,6 @@
 ---
 id: exo-lm9g
-status: open
+status: closed
 deps: [exo-ljge, exo-jtv5]
 links: []
 created: 2026-09-19T03:37:25Z
@@ -36,3 +36,9 @@ exo-hnil and exo-6g4f extend this demonstrated slice. exo-dcwx substitutes a rea
 ## Definitions
 
 End to end: using the actual client, service, storage, and delivery path together. Fixture: a small committed input used to reproduce a test.
+
+## Notes
+
+**2026-09-19T04:34:50Z**
+
+All six criteria verified in verification/M1-ACCEPTANCE.md. cargo test --test m1 -- --nocapture starts the actual daemon and CLI, checks create/ghost/read/meta, suppresses live duplicates, compacts and resurfaces, rejects direct outside-scope requests, and replays the recorded event sequence identically in a fresh controlled context. Full workspace: 18 integration tests pass. Formatting and clippy -D warnings pass; all ten model-check configurations match their expected outcomes.

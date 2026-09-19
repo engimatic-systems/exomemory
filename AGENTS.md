@@ -132,3 +132,15 @@ help` and `cargo run --bin exod -- help` document explicit configuration,
 JSON draft input, response envelopes and exit statuses. SQLite busy handling
 is bounded to two seconds and local socket I/O to five seconds. A disconnected
 write has an uncertain result; the client must not assume it rolled back.
+
+The complete controlled-harness M1 demo is
+`cargo test --test m1 -- --nocapture`. This single command starts an isolated
+SQLite daemon, creates the test-duration fixture through exoctl, queries
+candidates over its socket, accepts a bounded ghost, reads full data and
+metadata through exoctl, suppresses a live duplicate after cooldown, compacts
+it away, and surfaces it again. It also sends direct outside-scope requests.
+The printed run directory holds daemon logs, database/journals and
+`harness/m1-evidence.json`; live occurrences, receipts and logical events are
+canonical in `harness/context.sqlite`. This is a controlled host, not real
+Codex acceptance. Events are positive, strictly increasing per session;
+child live contexts share that session clock and cooldown history.
