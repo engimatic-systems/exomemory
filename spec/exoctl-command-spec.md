@@ -17,8 +17,18 @@ so they never consult an installed user configuration.
 
 ## Discovery
 
-- `exoctl help` describes the installed command grammar and result formats.
+- Bare `exoctl` prints the short command grammar and exits with usage status 2.
+- `exoctl help` and `exoctl --help` describe installed configuration, the full
+  command grammar, draft and result formats, then include `spec/overview.md`
+  verbatim as the product explanation. The binary includes that checked source
+  at build time, so the overview cannot silently drift.
 - `exoctl list-trigger-types` returns the currently available trigger types and their parameters. Types may include ordinary regex triggers, designated structured triggers such as dates, vector similarity, and backend-specific triggers.
+
+Options precede the command. Unknown options, repeated explicit options, missing
+option values, incomplete commands, and invalid revision values are distinct
+usage errors. Each error names the option or operand and gives the expected form
+or a direct next step. Values loaded from configuration remain lower-precedence
+defaults and never count as repeated explicit options.
 
 ## Creation
 

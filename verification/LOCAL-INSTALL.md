@@ -36,8 +36,13 @@ The SessionStart hook explains the installed `exoctl` command to the model.
 The first request creates a real memory only when the user asks; installation
 seeds no sample records. Individual previews remain best effort.
 
-`exoctl help` shows the complete JSON draft grammar. The installed command is the
-compiled Rust executable, not a shell wrapper. It reads persistent runtime,
+Bare `exoctl` prints a compact command reminder and exits with usage status 2.
+`exoctl help` and `exoctl --help` show normal installed configuration, embed the
+checked `spec/overview.md` text verbatim, and then document the complete JSON
+draft, results, exits, and separately labeled controlled/admin options. Unknown,
+duplicate, missing-value, and incomplete-command errors name the exact problem.
+The installed command is the compiled Rust executable, not a shell wrapper. It
+reads persistent runtime,
 scope-root, socket, tenant, and local-profile values from
 `~/.config/exomemory/exoctl.json`; `EXOMEMORY_CONFIG` selects another file and
 explicit command options take precedence. It derives the current directory from
@@ -117,8 +122,9 @@ profile separation, directory boundaries, compiled-client and Codex-launcher
 identity, clean-shell
 configuration discovery and precedence, session fallback, legacy-wrapper
 upgrade/repair, launcher routing/current directory, argument and exit-status
-forwarding, recursion rejection, existing executable/configuration preservation,
-inert hooks outside the managed host and uninstall without data loss. Fixtures
+forwarding, recursion rejection, both full-help spellings, exact overview
+inclusion, every parser error class, existing executable/configuration
+preservation, inert hooks outside the managed host and uninstall without data loss. Fixtures
 use unique `tests/.runtime/` homes and `--no-start`, which never touches launchd.
 
 `cargo test --test codex_live installed_hooks -- --ignored --nocapture` runs the

@@ -29,6 +29,112 @@ fn installer(home: &std::path::Path, operation: &str, extra: &[&str]) -> std::pr
 }
 
 #[test]
+fn installed_exoctl_help_and_parser_errors_are_self_explanatory() {
+    let run = Run::new();
+    let home = &run.scope;
+    let native = run.root.join("native-codex");
+    fs::write(
+        &native,
+        "#!/bin/sh\nif [ \"${1-}\" = --version ]; then echo 'codex-cli 0.155.1'; fi\n",
+    )
+    .unwrap();
+    fs::set_permissions(&native, fs::Permissions::from_mode(0o700)).unwrap();
+    assert!(
+        installer(home, "install", &["--codex", native.to_str().unwrap()])
+            .status
+            .success()
+    );
+    let exoctl = home.join(".local/bin/exoctl");
+    assert!(!fs::read(&exoctl).unwrap().starts_with(b"#!"));
+    let invoke = |args: &[&str]| {
+        Command::new(&exoctl)
+            .args(args)
+            .env_clear()
+            .env("HOME", home)
+            .env("PATH", "/usr/bin:/bin")
+            .current_dir(home)
+            .output()
+            .unwrap()
+    };
+
+    let bare = invoke(&[]);
+    assert_eq!(bare.status.code(), Some(2));
+    let short = String::from_utf8_lossy(&bare.stdout);
+    assert!(short.contains("Usage: exoctl [CONNECTION_OPTIONS] COMMAND"));
+    for command in ["create --json", "meta GHOST_KEY", "overwrite GHOST_KEY"] {
+        assert!(short.contains(command), "{short}");
+    }
+
+    let help = invoke(&["help"]);
+    let dashed_help = invoke(&["--help"]);
+    assert!(help.status.success() && dashed_help.status.success());
+    assert_eq!(help.stdout, dashed_help.stdout);
+    let help = String::from_utf8(help.stdout).unwrap();
+    let overview = include_str!("../spec/overview.md");
+    let normal = help.find("Normal installed configuration:").unwrap();
+    let embedded = help.find(overview).unwrap();
+    let validation = help
+        .find("Non-empty validated triggers and an explicit backend are required.")
+        .unwrap();
+    assert!(normal < embedded && embedded < validation);
+    assert!(help.contains("Controlled and administrator connection options"));
+    assert!(!help.contains("OPTIONS (all required"));
+    for required in [
+        "exoctl create --json FILE|-",
+        "exoctl GHOST_KEY",
+        "exoctl meta GHOST_KEY",
+        "exoctl annoy GHOST_KEY",
+        "--if-revision REVISION",
+        "Exit statuses: 0 success; 2 invalid_input",
+    ] {
+        assert!(help.contains(required), "missing {required}");
+    }
+
+    for (args, expected) in [
+        (
+            vec!["--unknown", "value", "list-trigger-types"],
+            "unknown option --unknown",
+        ),
+        (
+            vec![
+                "--tenant",
+                "first",
+                "--tenant",
+                "second",
+                "list-trigger-types",
+            ],
+            "option --tenant was supplied more than once",
+        ),
+        (vec!["--tenant"], "option --tenant requires a value"),
+        (vec!["create"], "create requires --json FILE|-"),
+        (
+            vec!["create", "--json"],
+            "create option --json requires a file path or -",
+        ),
+        (vec!["meta"], "meta requires GHOST_KEY"),
+        (
+            vec!["overwrite", "key", "--json", "-"],
+            "overwrite requires --if-revision REVISION",
+        ),
+        (
+            vec!["overwrite", "key", "--if-revision"],
+            "option --if-revision requires a revision value",
+        ),
+        (
+            vec!["overwrite", "key", "--if-revision", "word", "--json", "-"],
+            "invalid revision \"word\"",
+        ),
+    ] {
+        let output = invoke(&args);
+        assert_eq!(output.status.code(), Some(2), "{args:?}");
+        let value: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+        let message = value["result"]["Err"]["message"].as_str().unwrap();
+        assert!(message.contains(expected), "{args:?}: {message}");
+    }
+    assert!(installer(home, "uninstall", &[]).status.success());
+}
+
+#[test]
 fn installed_hook_delivers_only_the_public_ghost_shape() {
     use std::{
         io::Write,
