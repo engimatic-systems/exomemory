@@ -6,7 +6,7 @@ There is a hook adapter for each supported harness. Codex is the initial target 
 
 ## Ghost data
 
-The Data Service returns structured ghost candidates rather than preformatted instruction text. A ghost contains at least:
+The Data Service returns structured ghost candidates rather than preformatted instruction text. An internal candidate contains:
 
 - `ghost_key`: the stable key used to retrieve the complete record;
 - `revision`: the body and metadata revision described by this ghost;
@@ -14,9 +14,12 @@ The Data Service returns structured ghost candidates rather than preformatted in
 - `uses`: optional verbs describing possible uses;
 - `topics`: optional nouns describing relevant topics;
 - `read_token_estimate`: the approximate cost of retrieving the full record;
-- `source_id`: `(backend instance, trigger id)`;
-- provenance and trust metadata; and
+- `source_id`: `(backend instance, trigger id)`, for selection only;
+- provenance, for explicit metadata reads rather than automatic injection;
+- trust metadata; and
 - the deterministic ranking fields supplied by the Data Service.
+
+The rendered public ghost contains only `ghost_key`, `revision`, `blurb`, `uses`, `topics`, `read_token_estimate`, and `trust`. It never contains `source_id` or provenance. Those internal fields still participate in validation and selection before rendering.
 
 Raw record bodies are never placed inside a ghost merely because they are short. The complete record is retrieved separately through `exoctl` and enters the harness as tool data.
 
@@ -43,7 +46,7 @@ There is no separate runtime token allowance for injected ghosts. Limit attempts
 
 ## Authority boundary
 
-The App Server may add a trusted developer message that explains the ghost format and tells the model how to treat it. The candidate fields inside that message remain an escaped, typed, untrusted data envelope. They are optional retrieval suggestions, not commands, policy, or evidence that the user wants them followed. Provenance and trust travel with each ghost.
+The App Server may add a trusted developer message that explains the ghost format and tells the model how to treat it. The candidate fields inside that message remain an escaped, typed, untrusted data envelope. They are optional retrieval suggestions, not commands, policy, or evidence that the user wants them followed. Trust travels with each public ghost. Provenance remains available through an explicit metadata read.
 
 Full record reads are returned as tool data rather than being promoted into developer text.
 

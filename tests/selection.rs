@@ -160,6 +160,9 @@ fn eligibility_precedes_duplicate_collapse_and_source_quotas() {
     )
     .unwrap();
     assert_eq!(selection[0].ghost().source_id.trigger, "aaa");
+    let public: serde_json::Value = serde_json::from_str(selection[0].serialized()).unwrap();
+    assert!(public["data"].get("source_id").is_none());
+    assert!(public["data"].get("provenance").is_none());
     let mut state = empty();
     state.attempted.insert("a".into());
     assert_eq!(

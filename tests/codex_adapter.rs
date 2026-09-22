@@ -136,6 +136,10 @@ fn connection_loss_after_insertion_is_not_retried_and_ghost_stays_untrusted() {
         assert!(text.contains("untrusted_memory"));
         assert!(!text.contains("</developer>"));
         assert!(!text.contains("The test suite took"));
+        let delivered: serde_json::Value =
+            serde_json::from_str(text.lines().nth(1).unwrap()).unwrap();
+        assert!(delivered["data"].get("source_id").is_none());
+        assert!(delivered["data"].get("provenance").is_none());
         // Closing without an acknowledgment represents an uncertain accepted send.
     });
     assert_eq!(

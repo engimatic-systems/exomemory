@@ -10,7 +10,7 @@ These examples illustrate the eager-ghost workflow. A ghost advertises that pote
 
 - **Test-suite duration.** The user asks Exomemory to remember how long the test suite took. The memory is overwritable, so a future agent can propose a new measured duration. The agent supplies the revision it read; if another run updated the record concurrently, compare-and-swap reports a conflict instead of discarding either measurement. A short blurb may contain the duration, but the underlying body and metadata share the same atomic revision.
 
-- **Anthropology corpus.** The user asks to be reminded that an anthropology document collection exists whenever anthropology becomes relevant. A matching ghost advertises the corpus and its provenance; the agent can then decide to search it with `ls`, `rg`, or another retrieval tool. A broad corpus trigger cannot fill the hook response because count and per-source diversity limits apply.
+- **Anthropology corpus.** The user asks to be reminded that an anthropology document collection exists whenever anthropology becomes relevant. A matching ghost advertises the corpus; the agent can inspect its provenance through metadata and then decide to search it with `ls`, `rg`, or another retrieval tool. A broad corpus trigger cannot fill the hook response because count and per-source diversity limits apply.
 
 - **Experiment location.** The user says that experiments for a particular repository live in its parent directory. The memory uses directory scope tied to that repository. When an experiment task occurs inside the scope, the ghost advertises the location; it does not apply as a global filesystem instruction.
 
