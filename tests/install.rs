@@ -20,6 +20,15 @@ impl Drop for ChildGuard {
     }
 }
 
+fn fingerprint(bytes: &[u8]) -> String {
+    let mut hash = 0xcbf29ce484222325_u64;
+    for byte in bytes {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    format!("{}:{hash:016x}", bytes.len())
+}
+
 fn installer(home: &std::path::Path, operation: &str, extra: &[&str]) -> std::process::Output {
     Command::new(env!("CARGO_BIN_EXE_exo-install"))
         .args([operation, "--home", home.to_str().unwrap(), "--no-start"])
@@ -144,6 +153,7 @@ fn installed_hook_delivers_only_the_public_ghost_shape() {
     use tungstenite::Message;
 
     let run = Run::new();
+    println!("Installed interface evidence run: {}", run.root.display());
     let home = &run.scope;
     let native = run.root.join("native-codex");
     fs::write(
@@ -323,6 +333,39 @@ fn installed_hook_delivers_only_the_public_ghost_shape() {
         metadata["result"]["Ok"]["provenance"]["origin"],
         "installed-origin"
     );
+    let read = Command::new(home.join(".local/bin/exoctl"))
+        .arg(&key)
+        .env_clear()
+        .env("HOME", home)
+        .current_dir(home)
+        .output()
+        .unwrap();
+    assert!(read.status.success());
+    let read: serde_json::Value = serde_json::from_slice(&read.stdout).unwrap();
+    assert_eq!(read["result"]["Ok"]["body"], input.body);
+    let mut replacement = input.clone();
+    replacement.body = "Updated through the installed compiled client.".into();
+    replacement.blurb = "Installed client update".into();
+    let mut overwrite = Command::new(home.join(".local/bin/exoctl"))
+        .args(["overwrite", &key, "--if-revision", "1", "--json", "-"])
+        .env_clear()
+        .env("HOME", home)
+        .current_dir(home)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .unwrap();
+    overwrite
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(&serde_json::to_vec(&replacement).unwrap())
+        .unwrap();
+    let overwritten = overwrite.wait_with_output().unwrap();
+    assert!(overwritten.status.success());
+    let overwritten: serde_json::Value = serde_json::from_slice(&overwritten.stdout).unwrap();
+    assert_eq!(overwritten["result"]["Ok"]["metadata"]["revision"], 2);
+    assert_eq!(overwritten["result"]["Ok"]["body"], replacement.body);
     let codex_session = Command::new(home.join(".local/bin/exoctl"))
         .args(["annoy", &key])
         .env_clear()
@@ -404,6 +447,29 @@ fn installed_hook_delivers_only_the_public_ghost_shape() {
         .unwrap();
     assert_eq!(missing.status.code(), Some(2));
     assert!(String::from_utf8_lossy(&missing.stdout).contains("missing-client.json"));
+    let help = Command::new(home.join(".local/bin/exoctl"))
+        .arg("--help")
+        .env_clear()
+        .env("HOME", home)
+        .output()
+        .unwrap();
+    assert!(help.status.success());
+    fs::write(
+        run.root.join("harness/interface-evidence.json"),
+        serde_json::to_vec_pretty(&serde_json::json!({
+            "run_directory":run.root.clone(),
+            "compiled":{"exoctl":{"path":home.join(".local/bin/exoctl"),"fingerprint":fingerprint(&installed_exoctl)},"codex":{"path":home.join(".local/bin/codex"),"fingerprint":fingerprint(&fs::read(home.join(".local/bin/codex")).unwrap())}},
+            "help_fingerprint":fingerprint(&help.stdout),
+            "configuration_sources":["installed user configuration","EXOMEMORY_CONFIG","explicit command options"],
+            "delivered_context":delivered,
+            "delivered_ghost":public,
+            "metadata":metadata["result"]["Ok"],
+            "workflow":{"created":created["result"]["Ok"],"read":read["result"]["Ok"],"overwritten":overwritten["result"]["Ok"]},
+            "selection_source_quota_regression":"tests/selection.rs::eligibility_precedes_duplicate_collapse_and_source_quotas"
+        }))
+        .unwrap(),
+    )
+    .unwrap();
     drop(daemon);
     assert!(installer(home, "uninstall", &[]).status.success());
 }
@@ -894,6 +960,43 @@ fn login_shell_homebrew_order_is_repaired_detected_and_reversibly_managed() {
         );
     }
     assert!(check("check-routing", &correct_path).status.success());
+    let runtime = home.join(".local/share/exomemory");
+    let data_socket = runtime.join("exo.sock");
+    let mut daemon = ChildGuard(
+        Command::new(runtime.join("bin/exod"))
+            .args([
+                "--profile",
+                "local",
+                "--runtime",
+                runtime.to_str().unwrap(),
+                "--scope-root",
+                home.to_str().unwrap(),
+                "--tenant",
+                "personal",
+                "--database",
+                runtime.join("memory.sqlite").to_str().unwrap(),
+                "--socket",
+                data_socket.to_str().unwrap(),
+            ])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .unwrap(),
+    );
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    while std::os::unix::net::UnixStream::connect(&data_socket).is_err() {
+        assert!(daemon.0.try_wait().unwrap().is_none());
+        assert!(std::time::Instant::now() < deadline);
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+    let unreachable = check("status", &correct_path);
+    assert_eq!(unreachable.status.code(), Some(3));
+    let unreachable = String::from_utf8_lossy(&unreachable.stderr);
+    assert!(
+        unreachable.contains("Codex host unreachable at unix://"),
+        "{unreachable}"
+    );
+    drop(daemon);
     let wrong_path = format!(
         "{}:{}:/usr/bin:/bin",
         native_dir.display(),

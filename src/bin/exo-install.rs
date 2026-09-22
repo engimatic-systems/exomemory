@@ -564,6 +564,7 @@ fn install(home: &Path, native: &Path, start: bool) -> Result<()> {
         upgrade_codex_launcher(&mut installation, Some(native))?;
         repair_path(&mut installation)?;
         if start {
+            services(&installation, false)?;
             services(&installation, true)?;
             trust(&installation)?;
         }
@@ -799,7 +800,18 @@ fn upgrade_client(installation: &mut Installation) -> Result<()> {
             ),
         )
     })?;
-    let installer = fs::read(binaries.join("exo-install"))?;
+    for name in ["exod", "exo-codex-hook", "exo-codex", "exo-install"] {
+        let source = fs::read(binaries.join(name)).map_err(|error| {
+            Error::new(
+                ErrorCode::Unavailable,
+                format!(
+                    "reviewed {name} must be alongside exo-install at {}: {error}",
+                    binaries.display()
+                ),
+            )
+        })?;
+        write(&installation.runtime.join("bin").join(name), &source, 0o700)?;
+    }
     private_dir(&installation.home.join(".config/exomemory"))?;
     write(&installation.runtime.join("bin/exoctl"), &exoctl, 0o700)?;
     replace_managed_text(
@@ -812,12 +824,6 @@ fn upgrade_client(installation: &mut Installation) -> Result<()> {
         installation,
         installation.home.join(".local/bin/exoctl"),
         &exoctl,
-    )?;
-    // Future repair commands must use the same reviewed installer as the client.
-    write(
-        &installation.runtime.join("bin/exo-install"),
-        &installer,
-        0o700,
     )?;
     verify_exoctl(installation)?;
     println!(
@@ -1084,6 +1090,11 @@ fn run() -> Result<()> {
         "upgrade" | "repair" => {
             upgrade_client(&mut installation)?;
             upgrade_codex_launcher(&mut installation, native.as_deref())?;
+            if start {
+                services(&installation, false)?;
+                services(&installation, true)?;
+                trust(&installation)?;
+            }
         }
         "repair-path" => repair_path(&mut installation)?,
         "check-routing" => check_routing(&installation)?,
@@ -1119,8 +1130,28 @@ fn run() -> Result<()> {
                     },
                     operation: Operation::ListTriggerTypes,
                 },
-            )?;
-            let mut client = CodexClient::connect(&installation.runtime.join("codex.sock"))?;
+            )
+            .map_err(|error| {
+                Error::new(
+                    error.code,
+                    format!(
+                        "data service unreachable at {}: {}",
+                        installation.runtime.join("exo.sock").display(),
+                        error.message
+                    ),
+                )
+            })?;
+            let codex_socket = installation.runtime.join("codex.sock");
+            let mut client = CodexClient::connect(&codex_socket).map_err(|error| {
+                Error::new(
+                    error.code,
+                    format!(
+                        "Codex host unreachable at unix://{}: {}",
+                        codex_socket.display(),
+                        error.message
+                    ),
+                )
+            })?;
             let hooks = client.rpc("hooks/list", json!({"cwds":[installation.scope]}))?;
             fn trusted(value: &Value, command: &str) -> usize {
                 let own = usize::from(
