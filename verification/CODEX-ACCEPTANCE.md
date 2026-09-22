@@ -56,7 +56,10 @@ retried, and failed/uncertain delivery never unmarks a key.
 
 A fresh local WebSocket connection initializes the version-pinned App Server
 interface and injects one developer message containing the trusted wrapper plus
-escaped untrusted JSON. Full records use tool output. Final ghost bounds include
+escaped untrusted JSON. The public JSON contains `ghost_key`, `revision`, `blurb`,
+`uses`, `topics`, `read_token_estimate`, and `trust`; source identity and
+provenance remain internal and are available through explicit metadata output.
+Full records use tool output. Final ghost bounds include
 the extra JSON string escaping needed by this RPC. The wrapper limit includes
 its escaped bytes and request framing; an invalid bound is rejected before any
 key is marked. Count/byte bounds apply to new attempts between completed
@@ -66,7 +69,8 @@ compactions, not all information a compaction summary may retain.
 
 `cargo test --test codex_adapter` verifies all event mappings, parent/child
 identity, scope rejection, failed sends, lost acknowledgments, no retries,
-completed-only reset, escaped data, and framing limits. `tests/attempts.rs`
+completed-only reset, the exact public ghost boundary, escaped data, and framing
+limits. `tests/attempts.rs`
 checks concurrent reservations, rollback, persistence, context-local reset,
 logical-event replay, and cooldown. The host invokes each configured hook once;
 the adapter does not replay hooks on reconnect. Repeating a PostCompact command

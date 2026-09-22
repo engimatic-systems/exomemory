@@ -26,7 +26,7 @@ implementation bug reports.
 | `AtMostOneGhostPerWindow` | Inject; let the cooldown expire before history sync; inject the same key again. | Deduplicate against an authoritative live-window ledger, not only a lagging file. |
 | `NoStaleHistorySuppression` | Inject; sync append-only history; compact the ghost away; suppress it because history still contains the key. | Track what is live after compaction, not what appeared at any earlier time. |
 | `WithinGhostBudget` | Two memories match and both are injected into a context whose count cap is one. | Set a hard per-hook/per-window count and final-rendered ghost-size limit before injection. |
-| `NoUntrustedDeveloperContext` | An untrusted memory is injected with developer authority. | Preserve retrieved text as quoted data with provenance; never promote its instructions. |
+| `NoUntrustedDeveloperContext` | An untrusted memory is injected with developer authority. | Preserve retrieved text as typed, escaped data; keep provenance internal until an explicit metadata read and never promote retrieved instructions. |
 | `NoStaleWriterCommit` | Two writers read v1; writer A commits v2; writer B commits work based on v1 as v3. | Require compare-and-swap or explicit conflict resolution. |
 | `AlwaysSelectedTopRanked` | Two candidates are eligible; unconstrained surfacing selects the lower-ranked one. | Use a total deterministic order and make `annoy` a rank penalty. |
 

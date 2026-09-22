@@ -17,8 +17,9 @@ Initially recorded from the review form on 2026-09-18; context delivery revised 
    Select with deterministic lexicographic ranking, a stable final tie-break,
    deterministic `annoy` penalties, and per-source diversity limits.
 5. **Authority:** an App Server developer message may provide the trusted
-   interpretation wrapper, but retrieved ghost fields remain typed, escaped,
-   untrusted data with provenance. Full records return as tool data.
+   interpretation wrapper, but rendered ghost fields remain typed, escaped,
+   untrusted data. Source identity and provenance stay internal until an explicit
+   metadata read. Full records return as tool data.
 
 For diversity accounting, a source is the pair `(backend instance, trigger
 id)` after candidates with the same ghost key have been collapsed. This stops

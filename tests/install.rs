@@ -6,15 +6,198 @@ use exomemory::{
 use std::{
     fs,
     os::unix::fs::PermissionsExt,
-    process::{Command, Stdio},
+    process::{Child, Command, Stdio},
 };
 use support::*;
+
+struct ChildGuard(Child);
+
+impl Drop for ChildGuard {
+    fn drop(&mut self) {
+        let _ = self.0.kill();
+        let _ = self.0.wait();
+    }
+}
+
 fn installer(home: &std::path::Path, operation: &str, extra: &[&str]) -> std::process::Output {
     Command::new(env!("CARGO_BIN_EXE_exo-install"))
         .args([operation, "--home", home.to_str().unwrap(), "--no-start"])
         .args(extra)
         .output()
         .unwrap()
+}
+
+#[test]
+fn installed_hook_delivers_only_the_public_ghost_shape() {
+    use std::{
+        io::Write,
+        os::unix::net::{UnixListener, UnixStream},
+        time::{Duration, Instant},
+    };
+    use tungstenite::Message;
+
+    let run = Run::new();
+    let home = &run.scope;
+    let native = run.root.join("native-codex");
+    fs::write(
+        &native,
+        "#!/bin/sh\nif [ \"${1-}\" = --version ]; then echo 'codex-cli 0.155.1'; fi\n",
+    )
+    .unwrap();
+    fs::set_permissions(&native, fs::Permissions::from_mode(0o700)).unwrap();
+    let installed = installer(home, "install", &["--codex", native.to_str().unwrap()]);
+    assert!(
+        installed.status.success(),
+        "{}",
+        String::from_utf8_lossy(&installed.stderr)
+    );
+
+    let runtime = home.join(".local/share/exomemory");
+    let socket = runtime.join("exo.sock");
+    let mut daemon = ChildGuard(
+        Command::new(runtime.join("bin/exod"))
+            .args([
+                "--profile",
+                "local",
+                "--runtime",
+                runtime.to_str().unwrap(),
+                "--scope-root",
+                home.to_str().unwrap(),
+                "--tenant",
+                "personal",
+                "--database",
+                runtime.join("memory.sqlite").to_str().unwrap(),
+                "--socket",
+                socket.to_str().unwrap(),
+            ])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .unwrap(),
+    );
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while UnixStream::connect(&socket).is_err() {
+        assert!(
+            daemon.0.try_wait().unwrap().is_none(),
+            "installed daemon exited"
+        );
+        assert!(
+            Instant::now() < deadline,
+            "installed daemon startup timeout"
+        );
+        std::thread::sleep(Duration::from_millis(10));
+    }
+
+    let mut input = draft(&run);
+    input.scope = Scope::Dir {
+        root: home.to_path_buf(),
+    };
+    input.provenance.origin = "installed-origin".into();
+    let mut create = Command::new(home.join(".local/bin/exoctl"))
+        .args(["create", "--json", "-"])
+        .current_dir(home)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .unwrap();
+    create
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(&serde_json::to_vec(&input).unwrap())
+        .unwrap();
+    let created = create.wait_with_output().unwrap();
+    assert!(
+        created.status.success(),
+        "{}",
+        String::from_utf8_lossy(&created.stderr)
+    );
+    let created: serde_json::Value = serde_json::from_slice(&created.stdout).unwrap();
+    let key = created["result"]["Ok"]["metadata"]["ghost_key"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+
+    let codex_socket = runtime.join("codex.sock");
+    let listener = UnixListener::bind(&codex_socket).unwrap();
+    let server = std::thread::spawn(move || {
+        let (stream, _) = listener.accept().unwrap();
+        stream
+            .set_read_timeout(Some(Duration::from_secs(3)))
+            .unwrap();
+        let mut socket = tungstenite::accept(stream).unwrap();
+        let initialize: serde_json::Value =
+            serde_json::from_str(socket.read().unwrap().to_text().unwrap()).unwrap();
+        socket
+            .send(Message::Text(
+                serde_json::json!({"id":initialize["id"],"result":{"userAgent":"exomemory_hook/0.155.1 (installed-test)"}})
+                    .to_string()
+                    .into(),
+            ))
+            .unwrap();
+        socket.read().unwrap();
+        let insertion: serde_json::Value =
+            serde_json::from_str(socket.read().unwrap().to_text().unwrap()).unwrap();
+        let text = insertion["params"]["items"][0]["content"][0]["text"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        socket
+            .send(Message::Text(
+                serde_json::json!({"id":insertion["id"],"result":{}})
+                    .to_string()
+                    .into(),
+            ))
+            .unwrap();
+        text
+    });
+    let mut hook = Command::new(runtime.join("bin/exo-codex-hook"))
+        .arg("--env")
+        .env("EXOMEMORY_HOOK_CONFIG", runtime.join("hook-config.json"))
+        .current_dir(home)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .unwrap();
+    hook.stdin
+        .take()
+        .unwrap()
+        .write_all(
+            &serde_json::to_vec(&serde_json::json!({
+                "session_id":"installed-shape",
+                "cwd":home,
+                "hook_event_name":"UserPromptSubmit",
+                "prompt":"test"
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+    let hook = hook.wait_with_output().unwrap();
+    assert!(
+        hook.status.success(),
+        "{}",
+        String::from_utf8_lossy(&hook.stderr)
+    );
+    let delivered = server.join().unwrap();
+    let public: serde_json::Value =
+        serde_json::from_str(delivered.lines().nth(1).unwrap()).unwrap();
+    assert_eq!(public["data"]["ghost_key"], key);
+    assert!(public["data"].get("source_id").is_none());
+    assert!(public["data"].get("provenance").is_none());
+
+    let metadata = Command::new(home.join(".local/bin/exoctl"))
+        .args(["meta", &key])
+        .current_dir(home)
+        .output()
+        .unwrap();
+    assert!(metadata.status.success());
+    let metadata: serde_json::Value = serde_json::from_slice(&metadata.stdout).unwrap();
+    assert_eq!(
+        metadata["result"]["Ok"]["provenance"]["origin"],
+        "installed-origin"
+    );
+    drop(daemon);
+    assert!(installer(home, "uninstall", &[]).status.success());
 }
 #[test]
 fn local_profile_requires_private_runtime_and_keeps_directory_boundaries() {

@@ -71,6 +71,9 @@ fn create_surface_read_compact_and_resurface_through_running_service() {
     let context = format!("{}{}", WRAPPER, selected[0].serialized());
     assert!(!context.contains(&record.body));
     assert!(context.len() <= config.interval_envelope_bytes);
+    let delivered: serde_json::Value = serde_json::from_str(selected[0].serialized()).unwrap();
+    assert!(delivered["data"].get("source_id").is_none());
+    assert!(delivered["data"].get("provenance").is_none());
     let (status, read) = ctl(&run, &daemon.socket, &run.scope, &[key], None);
     assert_eq!(status, 0);
     assert_eq!(

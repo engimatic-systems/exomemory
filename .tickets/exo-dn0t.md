@@ -1,6 +1,6 @@
 ---
 id: exo-dn0t
-status: open
+status: closed
 deps: [exo-aqd9, exo-jtv5]
 links: []
 created: 2026-09-19T20:07:26Z
@@ -38,3 +38,9 @@ These are suggestions; another sound method is acceptable. Separate the internal
 ## Definitions
 
 Provenance: stored information about where a memory came from. Source identity: the backend instance and trigger that produced a candidate. Rendered ghost: the bounded preview sent to the model. Metadata: the complete origin and trigger information returned on explicit request.
+
+## Notes
+
+**2026-09-22T02:44:57Z**
+
+Separated internal candidates from the public serialized ghost. Rendered and injected JSON now contains only ghost_key, revision, blurb, uses, topics, read_token_estimate, and trust; source_id and provenance remain validated and available to deterministic selection and exoctl meta. Updated the overview, App Server contract, decisions/results, and acceptance notes. Added hostile-field renderer coverage, source-quota/tie-break coverage, controlled and Codex adapter delivery assertions, and an isolated installed-hook regression that confirms metadata retention. cargo fmt --all -- --check, cargo clippy --workspace --all-targets -- -D warnings, and cargo test --workspace pass.

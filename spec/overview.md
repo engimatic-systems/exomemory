@@ -10,7 +10,7 @@ Exomemory is a middleware layer that provides that feedback loop. It has three b
 2. It lets the agent pull the thread of a ghost to retrieve the complete record.
 3. It lets the agent create memories and revise their content, triggers, and future ranking behavior.
 
-A ghost is an optional advertisement for data, not an instruction and not the complete memory. Exomemory preserves that distinction even when its own trusted wrapper is delivered as high-priority context. Retrieved fields remain escaped, typed data with provenance; the full record is only returned if the agent runs `exoctl` and gets back a tool read.
+A ghost is an optional advertisement for data, not an instruction and not the complete memory. Exomemory preserves that distinction even when its own trusted wrapper is delivered as high-priority context. Its public fields are `ghost_key`, `revision`, `blurb`, `uses`, `topics`, `read_token_estimate`, and `trust`. They remain escaped, typed data. Source identity and provenance stay internal during automatic recall; the full record and its origin metadata are only returned if the agent runs `exoctl` and gets back a tool read.
 
 For the same normalized event and the same versioned Exomemory state, candidate selection and ordering are deterministic. Negative feedback changes a deterministic ranking penalty.
 
