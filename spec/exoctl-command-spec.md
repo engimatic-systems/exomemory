@@ -2,6 +2,19 @@
 
 The `exoctl` command is the model's POSIX-compatible data control plane. It queries the Data Service daemon and provides stable exit statuses, machine-readable errors, and the following operations.
 
+The installed command is a compiled Rust executable. It resolves connection and
+policy values in this order: explicit command options, the file named by
+`EXOMEMORY_CONFIG`, then `$HOME/.config/exomemory/exoctl.json`. A selected file
+supplies the local profile, runtime, permitted scope root, socket, and tenant;
+explicit options replace individual file values. The command reports the
+selected source on stderr without printing record data or credentials.
+
+The installed command derives its working directory from the process. It uses
+`CODEX_THREAD_ID` as the session when Codex supplies it and otherwise uses the
+stable non-Codex session name `terminal`. Controlled tests and harnesses pass
+runtime, scope root, socket, tenant, session, and working directory explicitly,
+so they never consult an installed user configuration.
+
 ## Discovery
 
 - `exoctl help` describes the installed command grammar and result formats.

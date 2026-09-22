@@ -1,5 +1,6 @@
 pub mod app;
 pub mod attempts;
+pub mod client;
 pub mod codex;
 pub mod data;
 pub mod policy;

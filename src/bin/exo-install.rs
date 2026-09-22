@@ -1,4 +1,5 @@
 use exomemory::{
+    client::{ClientConfig, USER_CONFIG_RELATIVE},
     codex::{CodexClient, HookConfig},
     policy::Profile,
     render::Bounds,
@@ -31,7 +32,10 @@ struct SavedFile {
     path: PathBuf,
     previous: Option<Vec<u8>>,
     previous_mode: Option<u32>,
+    #[serde(default)]
     installed: Vec<u8>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    installed_fingerprint: Option<String>,
 }
 #[derive(Serialize, Deserialize)]
 struct Installation {
@@ -60,6 +64,20 @@ fn write(path: &Path, bytes: &[u8], mode: u32) -> Result<()> {
     fs::rename(temp, path)?;
     Ok(())
 }
+fn fingerprint(bytes: &[u8]) -> String {
+    let mut hash = 0xcbf29ce484222325_u64;
+    for byte in bytes {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    format!("{}:{hash:016x}", bytes.len())
+}
+fn saved_matches(file: &SavedFile, contents: &[u8]) -> bool {
+    file.installed_fingerprint.as_ref().map_or_else(
+        || file.installed == contents,
+        |saved| *saved == fingerprint(contents),
+    )
+}
 fn managed(
     installation: &mut Installation,
     path: PathBuf,
@@ -84,6 +102,7 @@ fn managed(
         previous,
         previous_mode,
         installed: contents.as_bytes().to_vec(),
+        installed_fingerprint: None,
     });
     write(
         &installation.runtime.join("installation.json"),
@@ -91,6 +110,33 @@ fn managed(
         0o600,
     )?;
     write(&path, contents.as_bytes(), mode)
+}
+fn managed_binary(installation: &mut Installation, path: PathBuf, contents: &[u8]) -> Result<()> {
+    let previous = match fs::read(&path) {
+        Ok(data) => Some(data),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
+        Err(e) => return Err(e.into()),
+    };
+    if fs::symlink_metadata(&path).is_ok_and(|m| m.file_type().is_symlink()) {
+        return Err(Error::new(
+            ErrorCode::Conflict,
+            format!("refusing to replace symlink {}", path.display()),
+        ));
+    }
+    let previous_mode = fs::metadata(&path).ok().map(|m| m.permissions().mode());
+    installation.files.push(SavedFile {
+        path: path.clone(),
+        previous,
+        previous_mode,
+        installed: Vec::new(),
+        installed_fingerprint: Some(fingerprint(contents)),
+    });
+    write(
+        &installation.runtime.join("installation.json"),
+        &serde_json::to_vec_pretty(&installation)?,
+        0o600,
+    )?;
+    write(&path, contents, 0o755)
 }
 const PATH_BEGIN: &str = "# >>> Exomemory PATH >>>";
 const PATH_END: &str = "# <<< Exomemory PATH <<<";
@@ -344,6 +390,78 @@ fn trust(installation: &Installation) -> Result<()> {
     client.rpc("config/batchWrite",json!({"edits":edits,"filePath":installation.home.join(".codex/config.toml"),"reloadUserConfig":true}))?;
     Ok(())
 }
+fn client_config(home: &Path, runtime: &Path) -> ClientConfig {
+    ClientConfig {
+        profile: Profile::Local,
+        runtime: runtime.to_owned(),
+        scope_root: home.to_owned(),
+        socket: runtime.join("exo.sock"),
+        tenant: "personal".into(),
+    }
+}
+
+fn verify_exoctl(installation: &Installation) -> Result<()> {
+    let command = installation.home.join(".local/bin/exoctl");
+    let packaged = installation.runtime.join("bin/exoctl");
+    let current = fs::read(&command).map_err(|e| {
+        Error::new(
+            ErrorCode::Unavailable,
+            format!("installed exoctl {} is unavailable: {e}", command.display()),
+        )
+    })?;
+    let expected = fs::read(&packaged).map_err(|e| {
+        Error::new(
+            ErrorCode::Unavailable,
+            format!("packaged exoctl {} is unavailable: {e}", packaged.display()),
+        )
+    })?;
+    if current != expected || current.starts_with(b"#!") {
+        return Err(Error::new(
+            ErrorCode::Unavailable,
+            format!(
+                "{} is not the compiled Exomemory client; run the reviewed exo-install upgrade --home {}",
+                command.display(),
+                installation.home.display()
+            ),
+        ));
+    }
+    let config_path = installation.home.join(USER_CONFIG_RELATIVE);
+    let config: ClientConfig = serde_json::from_slice(&fs::read(&config_path).map_err(|e| {
+        Error::new(
+            ErrorCode::Unavailable,
+            format!(
+                "installed exoctl configuration {} is unavailable: {e}",
+                config_path.display()
+            ),
+        )
+    })?)
+    .map_err(|e| {
+        Error::new(
+            ErrorCode::Unavailable,
+            format!(
+                "installed exoctl configuration {} is invalid: {e}",
+                config_path.display()
+            ),
+        )
+    })?;
+    let expected_config = client_config(&installation.home, &installation.runtime);
+    if config.profile != expected_config.profile
+        || config.runtime != expected_config.runtime
+        || config.scope_root != expected_config.scope_root
+        || config.socket != expected_config.socket
+        || config.tenant != expected_config.tenant
+    {
+        return Err(Error::new(
+            ErrorCode::Unavailable,
+            format!(
+                "installed exoctl configuration {} does not match this installation; run exomemory repair",
+                config_path.display()
+            ),
+        ));
+    }
+    Ok(())
+}
+
 fn install(home: &Path, native: &Path, start: bool) -> Result<()> {
     let version = Command::new(native).arg("--version").output()?;
     if String::from_utf8_lossy(&version.stdout).trim() != "codex-cli 0.155.1" {
@@ -362,6 +480,7 @@ fn install(home: &Path, native: &Path, start: bool) -> Result<()> {
     private_dir(&runtime)?;
     private_dir(&runtime.join("bin"))?;
     private_dir(&runtime.join("logs"))?;
+    private_dir(&home.join(".config/exomemory"))?;
     fs::create_dir_all(home.join(".local/bin"))?;
     fs::create_dir_all(home.join("Library/LaunchAgents"))?;
     fs::create_dir_all(home.join(".codex"))?;
@@ -417,20 +536,14 @@ fn install(home: &Path, native: &Path, start: bool) -> Result<()> {
         serde_json::to_string_pretty(&hooks)?,
         0o600,
     )?;
-    let cli = format!(
-        "#!/bin/sh\n# Explicit personal configuration; records remain scoped to the current directory.\ncase \"${{1-}}\" in help|--help) exec {} \"$@\";; esac\nexec {} --profile local --runtime {} --scope-root {} --tenant personal --session \"${{CODEX_THREAD_ID:-terminal}}\" --cwd \"$(pwd -P)\" --socket {} \"$@\"\n",
-        path_quote(&runtime.join("bin/exoctl")),
-        path_quote(&runtime.join("bin/exoctl")),
-        path_quote(&runtime),
-        path_quote(home),
-        path_quote(&runtime.join("exo.sock"))
-    );
     managed(
         &mut installation,
-        home.join(".local/bin/exoctl"),
-        cli,
-        0o755,
+        home.join(USER_CONFIG_RELATIVE),
+        serde_json::to_string_pretty(&client_config(home, &runtime))?,
+        0o600,
     )?;
+    let exoctl = fs::read(runtime.join("bin/exoctl"))?;
+    managed_binary(&mut installation, home.join(".local/bin/exoctl"), &exoctl)?;
     let launcher = format!(
         r#"#!/bin/sh
 # Route interactive sessions to the local host and preserve the caller's directory.
@@ -522,6 +635,108 @@ exec "$exo_native" --remote "$exo_remote" --cd "$(pwd -P)" "$@"
     );
     Ok(())
 }
+fn replace_managed_text(
+    installation: &mut Installation,
+    path: PathBuf,
+    contents: String,
+    mode: u32,
+) -> Result<()> {
+    if let Some(saved) = installation.files.iter_mut().find(|file| file.path == path) {
+        if let Ok(current) = fs::read(&path)
+            && !saved_matches(saved, &current)
+            && current != contents.as_bytes()
+        {
+            return Err(Error::new(
+                ErrorCode::Conflict,
+                format!(
+                    "preserving edited file {}; resolve it before repair",
+                    path.display()
+                ),
+            ));
+        }
+        saved.installed = contents.as_bytes().to_vec();
+        saved.installed_fingerprint = None;
+        write(
+            &installation.runtime.join("installation.json"),
+            &serde_json::to_vec_pretty(&installation)?,
+            0o600,
+        )?;
+        write(&path, contents.as_bytes(), mode)
+    } else {
+        managed(installation, path, contents, mode)
+    }
+}
+
+fn replace_managed_binary(
+    installation: &mut Installation,
+    path: PathBuf,
+    contents: &[u8],
+) -> Result<()> {
+    if let Some(saved) = installation.files.iter_mut().find(|file| file.path == path) {
+        if let Ok(current) = fs::read(&path)
+            && !saved_matches(saved, &current)
+            && current != contents
+        {
+            return Err(Error::new(
+                ErrorCode::Conflict,
+                format!(
+                    "preserving edited file {}; resolve it before repair",
+                    path.display()
+                ),
+            ));
+        }
+        saved.installed.clear();
+        saved.installed_fingerprint = Some(fingerprint(contents));
+        write(
+            &installation.runtime.join("installation.json"),
+            &serde_json::to_vec_pretty(&installation)?,
+            0o600,
+        )?;
+        write(&path, contents, 0o755)
+    } else {
+        managed_binary(installation, path, contents)
+    }
+}
+
+fn upgrade_client(installation: &mut Installation) -> Result<()> {
+    let binaries = std::env::current_exe()?.parent().unwrap().to_owned();
+    let exoctl = fs::read(binaries.join("exoctl")).map_err(|e| {
+        Error::new(
+            ErrorCode::Unavailable,
+            format!(
+                "reviewed exoctl must be alongside exo-install at {}: {e}",
+                binaries.display()
+            ),
+        )
+    })?;
+    let installer = fs::read(binaries.join("exo-install"))?;
+    private_dir(&installation.home.join(".config/exomemory"))?;
+    write(&installation.runtime.join("bin/exoctl"), &exoctl, 0o700)?;
+    replace_managed_text(
+        installation,
+        installation.home.join(USER_CONFIG_RELATIVE),
+        serde_json::to_string_pretty(&client_config(&installation.home, &installation.runtime))?,
+        0o600,
+    )?;
+    replace_managed_binary(
+        installation,
+        installation.home.join(".local/bin/exoctl"),
+        &exoctl,
+    )?;
+    // Future repair commands must use the same reviewed installer as the client.
+    write(
+        &installation.runtime.join("bin/exo-install"),
+        &installer,
+        0o700,
+    )?;
+    verify_exoctl(installation)?;
+    println!(
+        "Installed compiled exoctl and configuration at {}.",
+        installation.home.join(USER_CONFIG_RELATIVE).display()
+    );
+    Ok(())
+}
+
 fn uninstall(installation: &Installation, start: bool) -> Result<()> {
     if start {
         services(installation, false)?;
@@ -544,7 +759,10 @@ fn uninstall(installation: &Installation, start: bool) -> Result<()> {
                 }
             }
             write(&file.path, &serde_json::to_vec_pretty(&value)?, 0o600)?;
-        } else if fs::read(&file.path).ok().as_deref() == Some(&file.installed) {
+        } else if fs::read(&file.path)
+            .ok()
+            .is_some_and(|contents| saved_matches(file, &contents))
+        {
             if let Some(previous) = &file.previous {
                 write(&file.path, previous, file.previous_mode.unwrap_or(0o600))?;
             } else {
@@ -584,7 +802,7 @@ fn run() -> Result<()> {
     let args: Vec<_> = std::env::args().skip(1).collect();
     if args.is_empty() || args.first().is_some_and(|a| a == "help" || a == "--help") {
         println!(
-            "exo-install install --home DIR --codex ABSOLUTE_PATH [--no-start]\nexo-install status|start|stop|trust|repair-path|check-routing|uninstall --home DIR [--no-start]\nmacOS personal directory-scoped trial. install requires all four compiled binaries alongside this executable. --no-start prepares isolated fixtures without touching launchd. Uninstall preserves the SQLite store. Existing hook/configuration entries are preserved; only the installed hook definitions are trusted."
+            "exo-install install --home DIR --codex ABSOLUTE_PATH [--no-start]\nexo-install upgrade|repair|status|start|stop|trust|repair-path|check-routing|uninstall --home DIR [--no-start]\nmacOS personal directory-scoped trial. install requires all four compiled binaries alongside this executable. upgrade migrates the prior exoctl wrapper to the reviewed compiled client; repair reapplies the owned compiled client and configuration without replacing user edits. --no-start prepares isolated fixtures without touching launchd. Uninstall preserves the SQLite store. Existing hook/configuration entries are preserved; only the installed hook definitions are trusted."
         );
         return Ok(());
     }
@@ -634,6 +852,7 @@ fn run() -> Result<()> {
         home.join(".local/share/exomemory/installation.json"),
     )?)?;
     match operation.as_str() {
+        "upgrade" | "repair" => upgrade_client(&mut installation)?,
         "repair-path" => repair_path(&mut installation)?,
         "check-routing" => check_routing(&installation)?,
         "trust" => trust(&installation)?,
@@ -644,6 +863,7 @@ fn run() -> Result<()> {
         "stop" => services(&installation, false)?,
         "uninstall" => uninstall(&installation, start)?,
         "status" => {
+            verify_exoctl(&installation)?;
             check_routing(&installation)?;
             println!(
                 "Store: {}\nPermitted directories: {}",

@@ -28,8 +28,13 @@ The SessionStart hook explains the installed `exoctl` command to the model.
 The first request creates a real memory only when the user asks; installation
 seeds no sample records. Individual previews remain best effort.
 
-`exoctl help` shows the complete JSON draft grammar. The installed launcher
-supplies runtime, scope root, tenant, session and current directory automatically.
+`exoctl help` shows the complete JSON draft grammar. The installed command is the
+compiled Rust executable, not a shell wrapper. It reads persistent runtime,
+scope-root, socket, tenant, and local-profile values from
+`~/.config/exomemory/exoctl.json`; `EXOMEMORY_CONFIG` selects another file and
+explicit command options take precedence. It derives the current directory from
+the process, uses `CODEX_THREAD_ID` when supplied by Codex, and otherwise uses
+the documented `terminal` session name.
 Drafts still specify a directory scope, normally the current project. No global
 scope is enabled. A memory rooted in project A is inaccessible from sibling B;
 a deliberately chosen ancestor scope is applicable to its descendant projects.
@@ -45,6 +50,11 @@ The installer creates two per-user LaunchAgents:
 
 Binaries, SQLite data, attempt state, logs, hook configuration and installation
 backups live under `~/.local/share/exomemory` with a private directory mode.
+The installed client configuration lives at
+`~/.config/exomemory/exoctl.json`. The installer records both it and the compiled
+`~/.local/bin/exoctl` as owned files. `upgrade` migrates the earlier shell-wrapper
+layout in place; `repair` reapplies unchanged owned files but refuses to replace
+later user edits. Both retain the SQLite store.
 No authentication files are copied for personal installation; the host uses the
 user's existing Codex configuration and login. The normal model and approval
 settings are preserved. Live validation uses GPT 5.6 Luna separately.
@@ -60,6 +70,7 @@ The host insertion path and hooks follow the official
 
 ```sh
 exomemory status
+exomemory repair
 exomemory repair-path
 exomemory stop
 exomemory start
@@ -88,10 +99,12 @@ uninstall restores the native command path.
 ## Verification
 
 `cargo test --test install` checks private-runtime requirements, test/local
-profile separation, directory boundaries, launcher routing/current directory,
-existing configuration preservation, inert hooks outside the managed host and
-uninstall without data loss. Fixtures use unique `tests/.runtime/` homes and
-`--no-start`, which never touches launchd.
+profile separation, directory boundaries, compiled-client identity, clean-shell
+configuration discovery and precedence, session fallback, legacy-wrapper
+upgrade/repair, launcher routing/current directory, existing configuration
+preservation, inert hooks outside the managed host and uninstall without data
+loss. Fixtures use unique `tests/.runtime/` homes and `--no-start`, which never
+touches launchd.
 
 `cargo test --test codex_live installed_hooks -- --ignored --nocapture` runs the
 actual installer in an isolated home, starts its two binaries as owned test

@@ -3,7 +3,7 @@ use std::{
     fs,
     path::{Component, Path, PathBuf},
 };
-#[derive(Debug, Clone, Copy, Default, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Profile {
     #[default]
