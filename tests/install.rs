@@ -379,8 +379,14 @@ fn installation_preserves_existing_configuration_and_uninstall_preserves_memorie
     .unwrap();
     fs::write(home.join(".codex/config.toml"), "model = 'user-choice'\n").unwrap();
     fs::write(home.join(".local/bin/exoctl"), "prior-cli").unwrap();
+    fs::write(home.join(".local/bin/codex"), "prior-codex").unwrap();
+    fs::set_permissions(
+        home.join(".local/bin/codex"),
+        fs::Permissions::from_mode(0o700),
+    )
+    .unwrap();
     let native = run.root.join("native-codex");
-    fs::write(&native,"#!/bin/sh\nif [ \"${1-}\" = --version ]; then echo 'codex-cli 0.155.1'; else printf '%s\\n' \"$@\"; fi\n").unwrap();
+    fs::write(&native,"#!/bin/sh\nif [ \"${1-}\" = --version ]; then echo 'codex-cli 0.155.1'; exit 0; fi\nfor arg in \"$@\"; do if [ \"$arg\" = exit-seven ]; then exit 7; fi; done\nprintf '%s\\n' \"$@\"\n").unwrap();
     fs::set_permissions(&native, fs::Permissions::from_mode(0o700)).unwrap();
     let result = installer(home, "install", &["--codex", native.to_str().unwrap()]);
     assert!(
@@ -389,7 +395,7 @@ fn installation_preserves_existing_configuration_and_uninstall_preserves_memorie
         String::from_utf8_lossy(&result.stderr)
     );
     assert!(
-        !installer(home, "install", &["--codex", native.to_str().unwrap()])
+        installer(home, "install", &["--codex", native.to_str().unwrap()])
             .status
             .success()
     );
@@ -400,12 +406,30 @@ fn installation_preserves_existing_configuration_and_uninstall_preserves_memorie
     let hooks: serde_json::Value =
         serde_json::from_slice(&fs::read(home.join(".codex/hooks.json")).unwrap()).unwrap();
     assert_eq!(hooks["hooks"]["Stop"].as_array().unwrap().len(), 2);
+    let runtime = home.join(".local/share/exomemory");
+    let launcher = fs::read(home.join(".local/bin/codex")).unwrap();
+    assert_eq!(launcher, fs::read(runtime.join("bin/exo-codex")).unwrap());
+    assert!(!launcher.starts_with(b"#!"));
+    fs::write(home.join(".local/bin/codex"), "later-user-launcher-edit").unwrap();
+    let refused_repair = installer(home, "repair", &[]);
+    assert_eq!(refused_repair.status.code(), Some(7));
+    assert_eq!(
+        fs::read_to_string(home.join(".local/bin/codex")).unwrap(),
+        "later-user-launcher-edit"
+    );
+    fs::write(home.join(".local/bin/codex"), &launcher).unwrap();
+    fs::set_permissions(
+        home.join(".local/bin/codex"),
+        fs::Permissions::from_mode(0o755),
+    )
+    .unwrap();
     let launched = Command::new(home.join(".local/bin/codex"))
         .arg("my prompt")
         .output()
         .unwrap();
     assert!(String::from_utf8_lossy(&launched.stdout).starts_with("--remote\nunix://"));
     assert!(String::from_utf8_lossy(&launched.stdout).contains("--cd\n"));
+    assert!(String::from_utf8_lossy(&launched.stdout).ends_with("my prompt\n"));
     let explicit = Command::new(home.join(".local/bin/codex"))
         .args(["--cd", home.to_str().unwrap(), "hello"])
         .output()
@@ -421,7 +445,43 @@ fn installation_preserves_existing_configuration_and_uninstall_preserves_memorie
         .output()
         .unwrap();
     assert_eq!(String::from_utf8_lossy(&native_help.stdout), "--help\n");
-    let config = home.join(".local/share/exomemory/hook-config.json");
+    let explicit_remote = Command::new(home.join(".local/bin/codex"))
+        .args(["--remote", "unix:///other.sock", "hello"])
+        .output()
+        .unwrap();
+    assert_eq!(
+        String::from_utf8_lossy(&explicit_remote.stdout),
+        "--remote\nunix:///other.sock\nhello\n"
+    );
+    let maintenance = Command::new(home.join(".local/bin/codex"))
+        .args(["exec", "hello"])
+        .output()
+        .unwrap();
+    assert_eq!(
+        String::from_utf8_lossy(&maintenance.stdout),
+        "exec\nhello\n"
+    );
+    let forwarded_status = Command::new(home.join(".local/bin/codex"))
+        .args(["doctor", "exit-seven"])
+        .output()
+        .unwrap();
+    assert_eq!(forwarded_status.status.code(), Some(7));
+
+    let launcher_config = runtime.join("codex-launcher.json");
+    let original_launcher_config = fs::read(&launcher_config).unwrap();
+    let mut recursive: serde_json::Value =
+        serde_json::from_slice(&original_launcher_config).unwrap();
+    recursive["upstream"] = home.join(".local/bin/codex").to_str().unwrap().into();
+    fs::write(&launcher_config, serde_json::to_vec(&recursive).unwrap()).unwrap();
+    let recursion = Command::new(home.join(".local/bin/codex"))
+        .arg("--version")
+        .output()
+        .unwrap();
+    assert_eq!(recursion.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&recursion.stderr).contains("refusing recursion"));
+    fs::write(&launcher_config, original_launcher_config).unwrap();
+
+    let config = runtime.join("hook-config.json");
     let inert = Command::new(home.join(".local/share/exomemory/bin/exo-codex-hook"))
         .arg("--env")
         .env_remove("EXOMEMORY_HOOK_CONFIG")
@@ -452,7 +512,10 @@ fn installation_preserves_existing_configuration_and_uninstall_preserves_memorie
         fs::read_to_string(home.join(".local/bin/exoctl")).unwrap(),
         "prior-cli"
     );
-    assert!(!home.join(".local/bin/codex").exists());
+    assert_eq!(
+        fs::read_to_string(home.join(".local/bin/codex")).unwrap(),
+        "prior-codex"
+    );
     let restored: serde_json::Value =
         serde_json::from_slice(&fs::read(home.join(".codex/hooks.json")).unwrap()).unwrap();
     assert_eq!(restored["hooks"]["Stop"].as_array().unwrap().len(), 1);
@@ -465,6 +528,7 @@ fn installation_preserves_existing_configuration_and_uninstall_preserves_memorie
             .unwrap(),
         record
     );
+    assert!(installer(home, "uninstall", &[]).status.success());
 }
 
 #[test]
@@ -522,6 +586,17 @@ fn legacy_exoctl_wrapper_upgrades_repairs_and_uninstalls_without_losing_the_stor
         fs::Permissions::from_mode(0o755),
     )
     .unwrap();
+    let legacy_codex = format!(
+        "#!/bin/sh\nexo_native='{}'\nexo_remote='unix://{}'\nexec \"$exo_native\" --remote \"$exo_remote\" \"$@\"\n",
+        native.display(),
+        runtime.join("codex.sock").display()
+    );
+    fs::write(home.join(".local/bin/codex"), &legacy_codex).unwrap();
+    fs::set_permissions(
+        home.join(".local/bin/codex"),
+        fs::Permissions::from_mode(0o755),
+    )
+    .unwrap();
     let manifest_path = runtime.join("installation.json");
     let mut manifest: serde_json::Value =
         serde_json::from_slice(&fs::read(&manifest_path).unwrap()).unwrap();
@@ -541,12 +616,30 @@ fn legacy_exoctl_wrapper_upgrades_repairs_and_uninstalls_without_losing_the_stor
         .as_object_mut()
         .unwrap()
         .remove("installed_fingerprint");
+    let launcher = manifest["files"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|file| file["path"].as_str() == home.join(".local/bin/codex").to_str())
+        .unwrap();
+    launcher["installed"] = serde_json::to_value(legacy_codex.as_bytes().to_vec()).unwrap();
+    launcher
+        .as_object_mut()
+        .unwrap()
+        .remove("installed_fingerprint");
+    manifest.as_object_mut().unwrap().remove("native_codex");
+    manifest
+        .as_object_mut()
+        .unwrap()
+        .remove("codex_host_socket");
     fs::write(
         &manifest_path,
         serde_json::to_vec_pretty(&manifest).unwrap(),
     )
     .unwrap();
     fs::remove_file(&config_path).unwrap();
+    fs::remove_file(runtime.join("codex-launcher.json")).unwrap();
+    fs::remove_file(runtime.join("bin/exo-codex")).unwrap();
 
     for operation in ["upgrade", "repair"] {
         let result = installer(home, operation, &[]);
@@ -559,6 +652,13 @@ fn legacy_exoctl_wrapper_upgrades_repairs_and_uninstalls_without_losing_the_stor
     let command = fs::read(home.join(".local/bin/exoctl")).unwrap();
     assert_eq!(command, fs::read(runtime.join("bin/exoctl")).unwrap());
     assert!(!command.starts_with(b"#!"));
+    let launcher = fs::read(home.join(".local/bin/codex")).unwrap();
+    assert_eq!(launcher, fs::read(runtime.join("bin/exo-codex")).unwrap());
+    assert!(!launcher.starts_with(b"#!"));
+    let launcher_config: exomemory::client::CodexLauncherConfig =
+        serde_json::from_slice(&fs::read(runtime.join("codex-launcher.json")).unwrap()).unwrap();
+    assert_eq!(launcher_config.upstream, native);
+    assert_eq!(launcher_config.host_socket, runtime.join("codex.sock"));
     let config: exomemory::client::ClientConfig =
         serde_json::from_slice(&fs::read(&config_path).unwrap()).unwrap();
     assert_eq!(config.profile, Profile::Local);
@@ -578,6 +678,7 @@ fn legacy_exoctl_wrapper_upgrades_repairs_and_uninstalls_without_losing_the_stor
         fs::read_to_string(home.join(".local/bin/exoctl")).unwrap(),
         "prior-cli"
     );
+    assert!(!home.join(".local/bin/codex").exists());
     assert!(!config_path.exists());
     assert_eq!(
         database
@@ -630,7 +731,28 @@ fn login_shell_homebrew_order_is_repaired_detected_and_reversibly_managed() {
             .output()
             .unwrap()
     };
-    assert!(check("check-routing", &correct_path).status.success());
+    let routing = check("check-routing", &correct_path);
+    assert!(routing.status.success());
+    let routing = String::from_utf8_lossy(&routing.stdout);
+    assert!(routing.contains("Compiled launcher verified"), "{routing}");
+    assert!(routing.contains(native.to_str().unwrap()), "{routing}");
+    assert!(
+        routing.contains(
+            home.join(".local/share/exomemory/codex.sock")
+                .to_str()
+                .unwrap()
+        ),
+        "{routing}"
+    );
+    let launcher_config = home.join(".local/share/exomemory/codex-launcher.json");
+    let original_config = fs::read(&launcher_config).unwrap();
+    let mut wrong: serde_json::Value = serde_json::from_slice(&original_config).unwrap();
+    wrong["upstream"] = "/bin/echo".into();
+    fs::write(&launcher_config, serde_json::to_vec(&wrong).unwrap()).unwrap();
+    let wrong = check("check-routing", &correct_path);
+    assert_eq!(wrong.status.code(), Some(3));
+    assert!(String::from_utf8_lossy(&wrong.stderr).contains("does not match"));
+    fs::write(&launcher_config, original_config).unwrap();
     // Reconstruct the old installation: healthy launcher PATH in this process, broken new terminals.
     fs::write(home.join(".zprofile"), &original_profile).unwrap();
     fs::write(home.join(".zshrc"), "# existing interactive setup\n").unwrap();

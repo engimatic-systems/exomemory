@@ -6,6 +6,13 @@ under the user's home directory. This is a local trial, not a general production
 installer. Noninteractive `codex exec`, desktop sessions and explicit remote
 connections retain their native behavior.
 
+Codex 0.155.1 has no verified persistent setting that routes every ordinary
+terminal session through this local host. Exomemory therefore installs a small
+compiled Rust launcher at `~/.local/bin/codex`. This is an Exomemory compatibility
+program, not the official Codex CLI. It validates and replaces itself with the
+separately recorded official executable. A future verified host setting could
+remove this launcher requirement.
+
 Build and install:
 
 ```sh
@@ -14,7 +21,8 @@ target/release/exo-install install --home /absolute/user/home --codex /absolute/
 ```
 
 The native Codex path must point to the original executable, not the installed
-launcher. The install puts launchers in `~/.local/bin` and appends marked PATH
+launcher. The installer puts compiled `codex` and `exoctl` programs in
+`~/.local/bin` and appends marked PATH
 blocks to `.zprofile` and `.zshrc`, after Homebrew and other existing shell setup.
 Open a new terminal after installation; in an existing zsh, run
 `source ~/.zshrc` followed by `rehash`. From any project beneath the home directory, run
@@ -50,11 +58,15 @@ The installer creates two per-user LaunchAgents:
 
 Binaries, SQLite data, attempt state, logs, hook configuration and installation
 backups live under `~/.local/share/exomemory` with a private directory mode.
+`codex-launcher.json` records the separate official executable and hosted Unix
+socket. The compiled launcher reads that file, refuses recursive delegation, and
+passes the official process's exit status through unchanged.
 The installed client configuration lives at
 `~/.config/exomemory/exoctl.json`. The installer records both it and the compiled
-`~/.local/bin/exoctl` as owned files. `upgrade` migrates the earlier shell-wrapper
-layout in place; `repair` reapplies unchanged owned files but refuses to replace
-later user edits. Both retain the SQLite store.
+`~/.local/bin/exoctl` as owned files. `upgrade` migrates both earlier shell
+wrappers in place; `repair` reapplies unchanged owned binaries and configuration
+but refuses to replace later user edits. Both retain the SQLite store and restore
+any executable that predated Exomemory on uninstall.
 No authentication files are copied for personal installation; the host uses the
 user's existing Codex configuration and login. The normal model and approval
 settings are preserved. Live validation uses GPT 5.6 Luna separately.
@@ -77,9 +89,11 @@ exomemory start
 exomemory uninstall
 ```
 
-Status checks the inherited PATH and a fresh interactive login shell before
-checking services and hook trust. A native Codex path, alias override or missing
-launcher makes it fail with an actionable diagnostic. `repair-path` repairs
+Status checks that the selected file is the compiled launcher in both inherited
+PATH and a fresh interactive login shell, then reports its separate official
+Codex executable and hosted socket before checking services and hook trust. A
+native Codex path, alias override, recursive/wrong upstream, missing launcher, or
+unreachable host makes it fail with an actionable diagnostic. `repair-path` repairs
 older installations or moves the owned blocks after later shell setup; repeating
 it does not duplicate the blocks. Custom ZDOTDIR setups are checked but need their
 startup files configured explicitly. Unhosted SessionStart hooks now report
@@ -99,12 +113,13 @@ uninstall restores the native command path.
 ## Verification
 
 `cargo test --test install` checks private-runtime requirements, test/local
-profile separation, directory boundaries, compiled-client identity, clean-shell
+profile separation, directory boundaries, compiled-client and Codex-launcher
+identity, clean-shell
 configuration discovery and precedence, session fallback, legacy-wrapper
-upgrade/repair, launcher routing/current directory, existing configuration
-preservation, inert hooks outside the managed host and uninstall without data
-loss. Fixtures use unique `tests/.runtime/` homes and `--no-start`, which never
-touches launchd.
+upgrade/repair, launcher routing/current directory, argument and exit-status
+forwarding, recursion rejection, existing executable/configuration preservation,
+inert hooks outside the managed host and uninstall without data loss. Fixtures
+use unique `tests/.runtime/` homes and `--no-start`, which never touches launchd.
 
 `cargo test --test codex_live installed_hooks -- --ignored --nocapture` runs the
 actual installer in an isolated home, starts its two binaries as owned test
@@ -115,6 +130,7 @@ run was `tests/.runtime/rc7197bc7335c`; its evidence is
 on completion. Existing app-server compaction tests cover the same adapter loop.
 
 The login-shell regression in `tests/install.rs` reproduces Homebrew preceding
-the launcher after `.zshenv`, checks status even when its inherited PATH looks
-correct, verifies that `codex` actually receives the local `--remote` arguments
-from a fresh shell, repairs a legacy manifest, and tests idempotence/uninstall.
+the launcher after `.zshenv`, verifies the compiled file and status report even
+when inherited PATH looks correct, proves that official Codex receives the local
+`--remote` arguments from a fresh shell, repairs a legacy manifest, and tests
+idempotence and reversible uninstall.
