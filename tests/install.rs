@@ -1,5 +1,6 @@
 mod support;
 use exomemory::{
+    client::USER_CONFIG_RELATIVE,
     policy::{Policy, Profile},
     types::*,
 };
@@ -53,6 +54,12 @@ fn installed_hook_delivers_only_the_public_ghost_shape() {
     );
 
     let runtime = home.join(".local/share/exomemory");
+    let installed_exoctl = fs::read(home.join(".local/bin/exoctl")).unwrap();
+    assert_eq!(
+        installed_exoctl,
+        fs::read(runtime.join("bin/exoctl")).unwrap()
+    );
+    assert!(!installed_exoctl.starts_with(b"#!"));
     let socket = runtime.join("exo.sock");
     let mut daemon = ChildGuard(
         Command::new(runtime.join("bin/exod"))
@@ -95,9 +102,13 @@ fn installed_hook_delivers_only_the_public_ghost_shape() {
     input.provenance.origin = "installed-origin".into();
     let mut create = Command::new(home.join(".local/bin/exoctl"))
         .args(["create", "--json", "-"])
+        .env_clear()
+        .env("HOME", home)
+        .env("PATH", "/usr/bin:/bin")
         .current_dir(home)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
         .spawn()
         .unwrap();
     create
@@ -109,9 +120,16 @@ fn installed_hook_delivers_only_the_public_ghost_shape() {
     let created = create.wait_with_output().unwrap();
     assert!(
         created.status.success(),
-        "{}",
-        String::from_utf8_lossy(&created.stderr)
+        "stdout={} stderr={}",
+        String::from_utf8_lossy(&created.stdout),
+        String::from_utf8_lossy(&created.stderr),
     );
+    let diagnostic = String::from_utf8_lossy(&created.stderr);
+    assert!(
+        diagnostic.contains("installed user configuration"),
+        "{diagnostic}"
+    );
+    assert!(diagnostic.contains(USER_CONFIG_RELATIVE), "{diagnostic}");
     let created: serde_json::Value = serde_json::from_slice(&created.stdout).unwrap();
     let key = created["result"]["Ok"]["metadata"]["ghost_key"]
         .as_str()
@@ -187,6 +205,9 @@ fn installed_hook_delivers_only_the_public_ghost_shape() {
 
     let metadata = Command::new(home.join(".local/bin/exoctl"))
         .args(["meta", &key])
+        .env_clear()
+        .env("HOME", home)
+        .env("PATH", "/usr/bin:/bin")
         .current_dir(home)
         .output()
         .unwrap();
@@ -196,6 +217,87 @@ fn installed_hook_delivers_only_the_public_ghost_shape() {
         metadata["result"]["Ok"]["provenance"]["origin"],
         "installed-origin"
     );
+    let codex_session = Command::new(home.join(".local/bin/exoctl"))
+        .args(["annoy", &key])
+        .env_clear()
+        .env("HOME", home)
+        .env("PATH", "/usr/bin:/bin")
+        .env("CODEX_THREAD_ID", "codex-thread")
+        .current_dir(home)
+        .output()
+        .unwrap();
+    assert!(codex_session.status.success());
+    let codex_session: serde_json::Value = serde_json::from_slice(&codex_session.stdout).unwrap();
+    assert_eq!(codex_session["result"]["Ok"]["session"], "codex-thread");
+    let terminal_session = Command::new(home.join(".local/bin/exoctl"))
+        .args(["annoy", &key])
+        .env_clear()
+        .env("HOME", home)
+        .env("PATH", "/usr/bin:/bin")
+        .current_dir(home)
+        .output()
+        .unwrap();
+    assert!(terminal_session.status.success());
+    let terminal_session: serde_json::Value =
+        serde_json::from_slice(&terminal_session.stdout).unwrap();
+    assert_eq!(terminal_session["result"]["Ok"]["session"], "terminal");
+
+    let alternate = runtime.join("alternate-client.json");
+    let mut alternate_config: serde_json::Value =
+        serde_json::from_slice(&fs::read(home.join(USER_CONFIG_RELATIVE)).unwrap()).unwrap();
+    alternate_config["tenant"] = "wrong-lower-precedence-value".into();
+    fs::write(&alternate, serde_json::to_vec(&alternate_config).unwrap()).unwrap();
+    let overridden = Command::new(home.join(".local/bin/exoctl"))
+        .args(["--tenant", "personal", "list-trigger-types"])
+        .env_clear()
+        .env("HOME", home)
+        .env("PATH", "/usr/bin:/bin")
+        .env("EXOMEMORY_CONFIG", &alternate)
+        .current_dir(home)
+        .output()
+        .unwrap();
+    assert!(
+        overridden.status.success(),
+        "{}",
+        String::from_utf8_lossy(&overridden.stdout)
+    );
+    assert!(String::from_utf8_lossy(&overridden.stderr).contains(alternate.to_str().unwrap()));
+
+    let missing = runtime.join("missing-client.json");
+    let explicit = Command::new(home.join(".local/bin/exoctl"))
+        .args([
+            "--profile",
+            "local",
+            "--runtime",
+            runtime.to_str().unwrap(),
+            "--scope-root",
+            home.to_str().unwrap(),
+            "--socket",
+            socket.to_str().unwrap(),
+            "--tenant",
+            "personal",
+            "--session",
+            "explicit-test",
+            "--cwd",
+            home.to_str().unwrap(),
+            "list-trigger-types",
+        ])
+        .env_clear()
+        .env("EXOMEMORY_CONFIG", &missing)
+        .current_dir(home)
+        .output()
+        .unwrap();
+    assert!(explicit.status.success());
+    assert!(String::from_utf8_lossy(&explicit.stderr).contains("explicit command options"));
+    let missing = Command::new(home.join(".local/bin/exoctl"))
+        .arg("list-trigger-types")
+        .env_clear()
+        .env("EXOMEMORY_CONFIG", &missing)
+        .current_dir(home)
+        .output()
+        .unwrap();
+    assert_eq!(missing.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&missing.stdout).contains("missing-client.json"));
     drop(daemon);
     assert!(installer(home, "uninstall", &[]).status.success());
 }
@@ -360,6 +462,126 @@ fn installation_preserves_existing_configuration_and_uninstall_preserves_memorie
     );
     assert_eq!(
         db.read(&policy, &context, &record.metadata.ghost_key)
+            .unwrap(),
+        record
+    );
+}
+
+#[test]
+fn legacy_exoctl_wrapper_upgrades_repairs_and_uninstalls_without_losing_the_store() {
+    use exomemory::data::Storage;
+
+    let run = Run::new();
+    let home = &run.scope;
+    fs::create_dir_all(home.join(".local/bin")).unwrap();
+    fs::write(home.join(".local/bin/exoctl"), "prior-cli").unwrap();
+    let native = run.root.join("native-codex");
+    fs::write(
+        &native,
+        "#!/bin/sh\nif [ \"${1-}\" = --version ]; then echo 'codex-cli 0.155.1'; fi\n",
+    )
+    .unwrap();
+    fs::set_permissions(&native, fs::Permissions::from_mode(0o700)).unwrap();
+    assert!(
+        installer(home, "install", &["--codex", native.to_str().unwrap()])
+            .status
+            .success()
+    );
+    let runtime = home.join(".local/share/exomemory");
+    let settings: exomemory::codex::HookConfig =
+        serde_json::from_slice(&fs::read(runtime.join("hook-config.json")).unwrap()).unwrap();
+    let policy = settings
+        .profile
+        .policy(&settings.runtime, &settings.scope_root, settings.tenant)
+        .unwrap();
+    let mut database =
+        exomemory::sqlite::Sqlite::open(&policy, &runtime.join("memory.sqlite")).unwrap();
+    let context = Context {
+        tenant: "personal".into(),
+        session: "upgrade-fixture".into(),
+        cwd: home.to_path_buf(),
+    };
+    let mut input = draft(&run);
+    input.scope = Scope::Dir {
+        root: home.to_path_buf(),
+    };
+    let record = database.create(&policy, &context, input).unwrap();
+    drop(database);
+
+    let legacy = format!(
+        "#!/bin/sh\nexec '{}' --profile local --runtime '{}' --scope-root '{}' --tenant personal --session terminal --cwd '{}' --socket '{}' \"$@\"\n",
+        runtime.join("bin/exoctl").display(),
+        runtime.display(),
+        home.display(),
+        home.display(),
+        runtime.join("exo.sock").display()
+    );
+    fs::write(home.join(".local/bin/exoctl"), &legacy).unwrap();
+    fs::set_permissions(
+        home.join(".local/bin/exoctl"),
+        fs::Permissions::from_mode(0o755),
+    )
+    .unwrap();
+    let manifest_path = runtime.join("installation.json");
+    let mut manifest: serde_json::Value =
+        serde_json::from_slice(&fs::read(&manifest_path).unwrap()).unwrap();
+    let config_path = home.join(USER_CONFIG_RELATIVE);
+    manifest["files"]
+        .as_array_mut()
+        .unwrap()
+        .retain(|file| file["path"].as_str() != config_path.to_str());
+    let command = manifest["files"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|file| file["path"].as_str() == home.join(".local/bin/exoctl").to_str())
+        .unwrap();
+    command["installed"] = serde_json::to_value(legacy.as_bytes().to_vec()).unwrap();
+    command
+        .as_object_mut()
+        .unwrap()
+        .remove("installed_fingerprint");
+    fs::write(
+        &manifest_path,
+        serde_json::to_vec_pretty(&manifest).unwrap(),
+    )
+    .unwrap();
+    fs::remove_file(&config_path).unwrap();
+
+    for operation in ["upgrade", "repair"] {
+        let result = installer(home, operation, &[]);
+        assert!(
+            result.status.success(),
+            "{operation}: {}",
+            String::from_utf8_lossy(&result.stderr)
+        );
+    }
+    let command = fs::read(home.join(".local/bin/exoctl")).unwrap();
+    assert_eq!(command, fs::read(runtime.join("bin/exoctl")).unwrap());
+    assert!(!command.starts_with(b"#!"));
+    let config: exomemory::client::ClientConfig =
+        serde_json::from_slice(&fs::read(&config_path).unwrap()).unwrap();
+    assert_eq!(config.profile, Profile::Local);
+    assert_eq!(config.runtime, runtime);
+    assert_eq!(config.scope_root, *home);
+
+    let mut database =
+        exomemory::sqlite::Sqlite::open(&policy, &runtime.join("memory.sqlite")).unwrap();
+    assert_eq!(
+        database
+            .read(&policy, &context, &record.metadata.ghost_key)
+            .unwrap(),
+        record
+    );
+    assert!(installer(home, "uninstall", &[]).status.success());
+    assert_eq!(
+        fs::read_to_string(home.join(".local/bin/exoctl")).unwrap(),
+        "prior-cli"
+    );
+    assert!(!config_path.exists());
+    assert_eq!(
+        database
+            .read(&policy, &context, &record.metadata.ghost_key)
             .unwrap(),
         record
     );

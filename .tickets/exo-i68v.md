@@ -1,6 +1,6 @@
 ---
 id: exo-i68v
-status: open
+status: closed
 deps: [exo-tuc0]
 links: []
 created: 2026-09-19T20:07:26Z
@@ -39,3 +39,9 @@ These are suggestions; another sound method is acceptable. Put profile resolutio
 ## Definitions
 
 Entry point: the executable selected when a shell resolves a command name. Configuration precedence: the order used when the same setting is available from more than one source. Installed user configuration: Exomemory's persistent per-user connection and scope settings. Controlled profile: the isolated configuration used by tests and manual experiments under `tests/.runtime/`.
+
+## Notes
+
+**2026-09-22T02:59:25Z**
+
+Installed exoctl is now the compiled Rust executable with a typed persistent client configuration. Resolution order is explicit complete options, EXOMEMORY_CONFIG, then the installed user file; explicit fields overlay file values. Installed use derives cwd, reads CODEX_THREAD_ID, and falls back to terminal, while controlled test calls remain fully explicit. Added upgrade/repair/status checks, compact manifest fingerprints for owned binaries, legacy-wrapper migration, clean-environment execution, configuration-source/path diagnostics, precedence/session tests, database preservation, and reversible uninstall coverage. Updated command and local-install contracts. cargo fmt --all -- --check, cargo clippy --workspace --all-targets -- -D warnings, cargo test --workspace, and the focused upgrade/install tests pass.
