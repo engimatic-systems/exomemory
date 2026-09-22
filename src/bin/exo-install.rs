@@ -407,9 +407,25 @@ fn services(installation: &Installation, start: bool) -> Result<()> {
                 ));
             }
         } else {
+            let target = format!("{domain}/{label}");
             let _ = Command::new("launchctl")
-                .args(["bootout", &format!("{domain}/{label}")])
+                .args(["bootout", &target])
                 .output()?;
+            let deadline = Instant::now() + Duration::from_secs(10);
+            while Command::new("launchctl")
+                .args(["print", &target])
+                .output()?
+                .status
+                .success()
+            {
+                if Instant::now() >= deadline {
+                    return Err(Error::new(
+                        ErrorCode::Unavailable,
+                        format!("timed out waiting for {label} to stop before restart"),
+                    ));
+                }
+                std::thread::sleep(Duration::from_millis(50));
+            }
         }
     }
     Ok(())
