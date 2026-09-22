@@ -24,7 +24,12 @@ new attempt. All observed hook handlers must finish successfully. The scenario
 then archives the test thread, exercising SessionEnd too.
 
 `harness/codex-evidence.json` records the host/model, before/after attempt state,
-and full-read result. `logs/codex-rpc.jsonl` records the model and tool events.
+and full-read result for the direct-host scenario. The installed-path scenario
+records compiled-command identities, help identity, metadata, trusted hook
+definitions, full-read confirmation, suppression and post-compaction attempt
+states, login-shell resolution, and authentication cleanup in
+`harness/installed-evidence.json`. `logs/codex-rpc.jsonl` and
+`logs/installed-rpc.jsonl` record their respective model and tool events.
 `verification/CODEX-HOOKS.md` separately documents scripted-provider checks for
 all eleven event types, permission insertion, a held prompt barrier, aborted
 compaction, and root/child compaction identity. Scripted responses are not

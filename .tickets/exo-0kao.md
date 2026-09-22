@@ -1,6 +1,6 @@
 ---
 id: exo-0kao
-status: open
+status: closed
 deps: [exo-v7n1, exo-uctk]
 links: []
 created: 2026-09-19T20:07:26Z
@@ -38,3 +38,9 @@ These are suggestions; another sound method is acceptable. Extend the installed-
 ## Definitions
 
 Upgrade fixture: an isolated reproduction of the previously installed layout. Delivered context: the exact preview text supplied to the model. Compiled executable: a native program rather than a shell script. Acceptance evidence: retained output sufficient for another reviewer to repeat and assess the result.
+
+## Notes
+
+**2026-09-22T03:39:03Z**
+
+Accepted 2026-09-21 on e0a83ab. ./verification/check-sqlite.sh passed after the bounded LaunchAgent restart fix: formatting, clippy, all workspace/process/installer tests, and all 11 model expectations. Installed-interface evidence: tests/.runtime/r5f7e42dd72fa/harness/interface-evidence.json. Real Codex 0.155.1 + GPT 5.6 Luna installed-path test passed with suppression, completed-compaction reset, resurfacing, full exoctl read, 11/11 trusted hooks, and authentication cleanup; evidence: tests/.runtime/rb6489ba567aa/harness/installed-evidence.json. The reviewed release was applied to the personal installation; installed binaries match it byte-for-byte, status is healthy, and the personal store remained 1 record at revision 1. Full record: verification/PREMERGE-INTERFACE-ACCEPTANCE.md.
