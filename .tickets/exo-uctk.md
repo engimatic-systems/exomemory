@@ -1,6 +1,6 @@
 ---
 id: exo-uctk
-status: open
+status: closed
 deps: [exo-tuc0, exo-71ur]
 links: [exo-qvzg]
 created: 2026-09-19T20:07:26Z
@@ -39,3 +39,9 @@ These are suggestions; another sound method is acceptable. Build a small Rust la
 ## Definitions
 
 Shim: a small compatibility program placed in front of another executable. Official executable: the Codex CLI distributed by OpenAI and left unchanged by Exomemory. Hosted Codex process: the Codex app server process whose lifecycle hooks can inject Exomemory previews. Login shell: a shell that loads login configuration before resolving commands.
+
+## Notes
+
+**2026-09-22T03:13:53Z**
+
+Added the compiled exo-codex shim and installed it at the owned codex path with a typed runtime configuration that records the separate official Codex 0.155.1 executable and hosted Unix socket. Interactive/resume/fork routing prepends remote and canonical cwd while preserving user arguments; explicit remote and maintenance commands pass through unchanged, exec preserves status, and recursive upstream selection is rejected. Status verifies compiled identity in inherited and fresh login shells and reports upstream/host. Install, wrapper upgrade, repair, and uninstall are idempotent; tests preserve edited files, shell changes, preexisting executables, and the SQLite store. Updated LOCAL-INSTALL with the version-specific launcher limitation. cargo fmt --all -- --check, cargo clippy --workspace --all-targets -- -D warnings, and cargo test --workspace pass.
