@@ -1,6 +1,6 @@
 ---
 id: exo-v7n1
-status: open
+status: closed
 deps: [exo-dn0t, exo-i68v]
 links: []
 created: 2026-09-19T20:07:26Z
@@ -39,3 +39,9 @@ These are suggestions; another sound method is acceptable. Keep a compact usage 
 ## Definitions
 
 Short usage: the compact command grammar printed after a bare or malformed invocation. Full help: the longer reference printed by `help` or `--help`. Parser: the code that turns command-line words into a command and options. Drift: an unintended difference between two copies of documentation.
+
+## Notes
+
+**2026-09-22T03:20:59Z**
+
+Reworked exoctl interface help and parsing. Bare invocation prints compact command and connection-option grammar and exits 2. help/--help are identical, explain normal installed configuration and workflow, embed spec/overview.md directly and verbatim before the existing trigger/draft/result material, and label controlled/admin options separately. Local typed parsing distinguishes unknown, repeated, missing-value, incomplete-command, unexpected-argument, and invalid-revision errors with the offending token and corrective syntax; configuration defaults never become duplicates. An installed-binary regression checks no-argument output, both help spellings, overview placement/drift, workflow completeness, and every parser error class. Updated command and installation contracts. cargo fmt --all -- --check, cargo clippy --workspace --all-targets -- -D warnings, and cargo test --workspace pass.
