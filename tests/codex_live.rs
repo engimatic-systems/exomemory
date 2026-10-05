@@ -30,6 +30,14 @@ impl Drop for PrivateAuth {
         let _ = fs::remove_file(&self.0);
     }
 }
+fn fingerprint(bytes: &[u8]) -> String {
+    let mut hash = 0xcbf29ce484222325_u64;
+    for byte in bytes {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    format!("{}:{hash:016x}", bytes.len())
+}
 impl Host {
     fn send(&mut self, value: Value) {
         use std::io::Write;
@@ -321,7 +329,7 @@ fn installed_hooks_are_trusted_without_bypass_and_luna_uses_the_installed_cli() 
     )
     .unwrap();
     let auth = codex_home.join("auth.json");
-    let _auth_cleanup = PrivateAuth(auth.clone());
+    let auth_cleanup = PrivateAuth(auth.clone());
     let source = std::env::var_os("CODEX_HOME")
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from(std::env::var_os("HOME").unwrap()).join(".codex"));
@@ -329,11 +337,11 @@ fn installed_hooks_are_trusted_without_bypass_and_luna_uses_the_installed_cli() 
         .write(true)
         .create_new(true)
         .mode(0o600)
-        .open(auth)
+        .open(&auth)
         .unwrap()
         .write_all(&fs::read(source.join("auth.json")).unwrap())
         .unwrap();
-    let _daemon = HostProcess(
+    let daemon = HostProcess(
         Command::new(runtime.join("bin/exod"))
             .args([
                 "--profile",
@@ -458,11 +466,125 @@ fn installed_hooks_are_trusted_without_bypass_and_luna_uses_the_installed_cli() 
                 .is_some_and(|s| s.contains("INSTALL_FULL_RECORD_MARKER") && s.contains(key))),
         "installed CLI did not return full record"
     );
-    host.rpc(5, "thread/archive", json!({"threadId":id}));
+    let settings: HookConfig =
+        serde_json::from_slice(&fs::read(runtime.join("hook-config.json")).unwrap()).unwrap();
+    let policy = settings
+        .profile
+        .policy(
+            &settings.runtime,
+            &settings.scope_root,
+            settings.tenant.clone(),
+        )
+        .unwrap();
+    let context = Context {
+        tenant: settings.tenant.clone(),
+        session: id.as_str().unwrap().into(),
+        cwd: home.to_path_buf(),
+    };
+    let mut attempts =
+        AttemptStore::open(&policy, &settings.attempts, settings.bounds.clone()).unwrap();
+    let first = attempts.state(&context, &context.session).unwrap();
+    assert!(first.attempted.contains(key));
+    host.turn(
+        5,
+        &id,
+        "Continue considering trialprobe, but do not run any tools.",
+    );
+    let suppressed = attempts.state(&context, &context.session).unwrap();
+    assert_eq!(first.last_attempted, suppressed.last_attempted);
+    host.rpc(6, "thread/compact/start", json!({"threadId":id}));
+    host.until(|value| {
+        value["method"] == "hook/completed" && value["params"]["run"]["eventName"] == "postCompact"
+    });
+    assert!(
+        attempts
+            .state(&context, &context.session)
+            .unwrap()
+            .attempted
+            .is_empty()
+    );
+    host.until(|value| value["method"] == "turn/completed");
+    host.turn(
+        7,
+        &id,
+        "Use any newly surfaced memory for trialprobe; the full record was already read.",
+    );
+    let after_compaction = attempts.state(&context, &context.session).unwrap();
+    assert!(after_compaction.last_attempted[key] > first.last_attempted[key]);
+
+    let metadata = Command::new(home.join(".local/bin/exoctl"))
+        .args(["meta", key])
+        .env("HOME", home)
+        .current_dir(home)
+        .output()
+        .unwrap();
+    assert!(metadata.status.success());
+    let metadata: Value = serde_json::from_slice(&metadata.stdout).unwrap();
+    assert_eq!(
+        metadata["result"]["Ok"]["provenance"],
+        serde_json::to_value(&input.provenance).unwrap()
+    );
+    assert_eq!(
+        metadata["result"]["Ok"]["triggers"],
+        serde_json::to_value(&input.triggers).unwrap()
+    );
+
+    host.rpc(8, "thread/archive", json!({"threadId":id}));
     for value in &host.observed {
         if value["method"] == "hook/completed" {
             assert_eq!(value["params"]["run"]["status"], "completed", "{value}");
         }
     }
-    fs::write(run.root.join("harness/installed-evidence.json"),serde_json::to_vec_pretty(&json!({"model":"gpt-5.6-luna","trusted_without_bypass":true,"installed_cli_full_read":true,"hook_definitions":listed})).unwrap()).unwrap();
+    let hook_events: Vec<_> = host
+        .observed
+        .iter()
+        .filter(|value| value["method"] == "hook/completed")
+        .filter_map(|value| {
+            value["params"]["run"]["eventName"]
+                .as_str()
+                .map(str::to_owned)
+        })
+        .collect();
+    let shell = Command::new("/bin/zsh")
+        .args(["-lic", "command -v codex"])
+        .env("HOME", home)
+        .env("ZDOTDIR", home)
+        .env("PATH", &path)
+        .current_dir(home)
+        .output()
+        .unwrap();
+    assert!(shell.status.success());
+    assert_eq!(
+        String::from_utf8_lossy(&shell.stdout).trim(),
+        home.join(".local/bin/codex").to_str().unwrap()
+    );
+    let launcher = fs::read(home.join(".local/bin/codex")).unwrap();
+    let client = fs::read(home.join(".local/bin/exoctl")).unwrap();
+    assert!(!launcher.starts_with(b"#!") && !client.starts_with(b"#!"));
+    let help = Command::new(home.join(".local/bin/exoctl"))
+        .arg("--help")
+        .env("HOME", home)
+        .output()
+        .unwrap();
+    assert!(help.status.success());
+    drop(host);
+    drop(daemon);
+    drop(auth_cleanup);
+    assert!(!auth.exists());
+    fs::write(run.root.join("harness/installed-evidence.json"),serde_json::to_vec_pretty(&json!({
+        "codex":"0.155.1",
+        "model":"gpt-5.6-luna",
+        "real_inference":true,
+        "run_directory":run.root.clone(),
+        "compiled":{"codex":{"path":home.join(".local/bin/codex"),"fingerprint":fingerprint(&launcher)},"exoctl":{"path":home.join(".local/bin/exoctl"),"fingerprint":fingerprint(&client)}},
+        "help_fingerprint":fingerprint(&help.stdout),
+        "fresh_login_resolution":home.join(".local/bin/codex"),
+        "trusted_without_bypass":true,
+        "installed_cli_full_read":true,
+        "metadata":metadata["result"]["Ok"],
+        "attempts":{"first":first,"suppressed":suppressed,"after_compaction":after_compaction},
+        "hook_events":hook_events,
+        "hook_definitions":listed,
+        "auth_removed":true
+    })).unwrap()).unwrap();
 }

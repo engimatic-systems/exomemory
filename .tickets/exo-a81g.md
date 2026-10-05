@@ -1,6 +1,6 @@
 ---
 id: exo-a81g
-status: open
+status: closed
 deps: [exo-bios, exo-dcwx, exo-fr7t]
 links: []
 created: 2026-09-19T03:37:25Z
@@ -46,3 +46,7 @@ Acceptance matrix and reusable check script added, with GitHub Actions running t
 **2026-09-19T15:25:49Z**
 
 Reopened: GitHub rejected the acceptance branch because the configured PAT lacks workflow scope. The tested gate and exact proposed workflow are reviewable at verification/check-sqlite.sh and verification/sqlite-workflow.yml; the latter is not active. All local checks and real Luna evidence pass, but a maintainer must enable workflow permission or publish the prepared workflow, then inspect CI before closure.
+
+**2026-10-05T16:25:36Z**
+
+CI workflow .github/workflows/sqlite.yml was published at commit 32b10bbb257ae2e3f61b02153bec57a4144a06f1, byte-for-byte equal to verification/sqlite-workflow.yml. Maintainer inspected and reported successful SQLite acceptance run https://github.com/engimatic-systems/exomemory/actions/runs/37335330379. Local token cannot read Actions API (403), so run result is maintainer-confirmed; local gate and live Codex 0.155.1/Luna evidence remain documented in verification/SQLITE-ACCEPTANCE.md. Acceptance criteria satisfied.

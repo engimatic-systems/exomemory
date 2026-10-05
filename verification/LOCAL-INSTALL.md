@@ -130,10 +130,13 @@ use unique `tests/.runtime/` homes and `--no-start`, which never touches launchd
 `cargo test --test codex_live installed_hooks -- --ignored --nocapture` runs the
 actual installer in an isolated home, starts its two binaries as owned test
 processes, persists exact hook trust without bypass, and asks GPT 5.6 Luna to
-retrieve an unsolicited preview through the installed CLI. The initial passing
-run was `tests/.runtime/rc7197bc7335c`; its evidence is
+retrieve an unsolicited preview through the installed CLI. It also proves that
+a second matching turn stays suppressed, completed compaction resets the
+context, and a later turn resurfaces the memory. The accepted interface run was
+`tests/.runtime/rb6489ba567aa`; its evidence is
 `harness/installed-evidence.json`. The temporary authentication copy is removed
-on completion. Existing app-server compaction tests cover the same adapter loop.
+on completion. `verification/PREMERGE-INTERFACE-ACCEPTANCE.md` records the
+reviewed personal upgrade and exact acceptance results.
 
 The login-shell regression in `tests/install.rs` reproduces Homebrew preceding
 the launcher after `.zshenv`, verifies the compiled file and status report even

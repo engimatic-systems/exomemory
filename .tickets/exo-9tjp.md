@@ -1,6 +1,6 @@
 ---
 id: exo-9tjp
-status: open
+status: closed
 deps: [exo-0kao]
 links: []
 created: 2026-09-19T20:07:17Z
@@ -38,3 +38,9 @@ These are suggestions; another sound method is acceptable. Implement the ghost a
 ## Definitions
 
 Rendered ghost: the bounded memory preview injected into model context. Self-configuring binary: an executable that reads its installed configuration itself instead of relying on a shell script to append arguments. Launcher: the local `codex` executable that starts the official Codex CLI with the remote host connection required by this integration. M3: the real-Codex SQLite acceptance milestone.
+
+## Notes
+
+**2026-10-05T15:39:17Z**
+
+Closed after exo-0kao passed the installed-path acceptance gate and all five child tickets closed. verification/PREMERGE-INTERFACE-ACCEPTANCE.md records formatting, clippy, workspace/model checks, real Codex 0.155.1 with GPT 5.6 Luna, compiled commands, migration, exact public ghost shape, and personal install. An earlier intermittent hook failure was reported but cannot currently be reproduced; retain future logs and open a focused regression ticket if it recurs. CI publication remains tracked by exo-a81g and does not change this interface acceptance.

@@ -175,9 +175,10 @@ SQLite busy timeout and aggregate queued-request latency.
 
 The SQLite acceptance gate is `./verification/check-sqlite.sh`, which runs
 formatting, clippy, offline tests and eleven model-check expectations.
-The proposed CI workflow is `verification/sqlite-workflow.yml`; activation is
-pending GitHub workflow-write permission, as recorded in the acceptance note. The real
-Codex and scripted-provider probes remain explicit host-dependent commands.
+The GitHub Actions workflow is `.github/workflows/sqlite.yml`, with its reviewed
+source copy at `verification/sqlite-workflow.yml`. It runs the same offline gate
+on pushes and pull requests. The real Codex and scripted-provider probes remain
+explicit host-dependent commands.
 `verification/SQLITE-ACCEPTANCE.md` maps each contract to executable evidence and
 records tested versions, artifact locations and the remaining product scope.
 
