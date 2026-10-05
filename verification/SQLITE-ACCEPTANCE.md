@@ -18,8 +18,9 @@ cargo run --manifest-path tests/probes/codex/Cargo.toml --target-dir target/prob
 ```
 
 The first command runs formatting, warnings-denied clippy, the locked workspace
-tests, and every finite-model expectation. `verification/sqlite-workflow.yml` is the prepared GitHub Actions workflow for
-that same command on pushes and pull requests; it is not active yet. The two demos and recovery suite
+tests, and every finite-model expectation. `.github/workflows/sqlite.yml`
+runs that same command on pushes and pull requests; the reviewed source copy is
+`verification/sqlite-workflow.yml`. The two demos and recovery suite
 are already included in workspace tests; their separate commands print artifact
 locations. The real-host test is opt-in and uses existing credentials and real
 GPT 5.6 Luna calls. The final command uses a scripted local provider for host
@@ -28,8 +29,8 @@ Neither host-dependent command is part of credential-free CI.
 
 Tested locally on macOS arm64 with Rust/Cargo 1.98.0, bundled rusqlite 0.40.2,
 Codex CLI 0.155.1, `gpt-5.6-luna`, and TLC 2.19 from TLA+ tools v1.7.4.
-The proposed CI workflow pins Rust 1.98.0 and Java 17 on Linux. Local results do not assert a remote
-CI job passed; its actual run must be inspected separately.
+The CI workflow pins Rust 1.98.0 and Java 17 on Linux. Local and remote results
+are recorded separately below.
 
 ## Executable traceability
 
@@ -90,7 +91,8 @@ they are never committed or uploaded as CI artifacts.
 
 The supported slice is SQLite/local, regex triggers, directory scope in an
 explicit test profile, local client-supplied session attribution, and Codex
-0.155.1. It has no production installer, hostile-filesystem guarantee, general
+0.155.1. The separate personal trial has a reversible local installer, but no
+general production installer. This slice has no hostile-filesystem guarantee, general
 global scope, remote authentication, external backend publication or other host
 version claim. Broader specified backends and workflows remain in exo-fsde and
 its linked tickets. Preview count/byte limits constrain new attempts between
@@ -116,16 +118,20 @@ are ignored. Source, migrations, lockfiles, tickets and this verification map
 remain versioned. These are bounded local results, not full-spec acceptance.
 The broader exo-fsde expansion backlog remains open.
 
-## Pending human action: activate CI
+## CI activation — 2026-10-05
 
-GitHub rejected publication of `.github/workflows/sqlite.yml`: the configured
-Personal Access Token lacks `workflow` scope. Code and pull requests can still
-be published with that credential. The exact reviewed workflow is therefore
-stored at `verification/sqlite-workflow.yml`, and the full offline gate is
-already runnable through `verification/check-sqlite.sh`.
+An earlier attempt to publish `.github/workflows/sqlite.yml` was rejected because
+the configured Personal Access Token lacked `workflow` scope. A maintainer
+published the file through GitHub on branch `test/premerge-interface-acceptance`
+at commit `32b10bbb257ae2e3f61b02153bec57a4144a06f1`. It is byte-for-byte
+identical to `verification/sqlite-workflow.yml`. The maintainer reported that the
+resulting [SQLite acceptance run](https://github.com/engimatic-systems/exomemory/actions/runs/37335330379)
+succeeded for this commit. The configured
+command-line token still receives 403 for the Actions API, and the GitHub
+connector receives 404, so this local record does not independently assert
+individual remote job log contents.
 
-A repository maintainer can enable `workflow` scope on the configured credential,
-or move the prepared file to `.github/workflows/sqlite.yml` and publish it using
-a credential with that permission. Inspect the resulting Actions run, then close
-exo-a81g and exo-fq27. Both tickets were reopened after the publication rejection;
-M3 is not claimed complete while CI activation remains pending.
+The accepted M3 result combines this maintainer-confirmed CI run with the
+recorded local gate, process recovery, and real Codex 0.155.1/GPT 5.6 Luna
+inference. The workflow is presently on the unmerged acceptance branch and
+will reach `main` when the review stack is merged.

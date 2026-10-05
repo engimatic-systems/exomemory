@@ -1,6 +1,6 @@
 ---
 id: exo-fq27
-status: open
+status: closed
 deps: [exo-a81g, exo-9tjp]
 links: []
 created: 2026-09-19T03:37:24Z
@@ -44,3 +44,7 @@ M3 SQLite acceptance achieved under the explicitly approved best-effort attempt 
 **2026-09-19T15:25:49Z**
 
 Reopened after GitHub rejected workflow publication for missing PAT workflow scope. Implementation, recovery, local gate and real Luna acceptance are complete; CI activation remains a concrete human prerequisite tracked by exo-a81g. No new product-design decision is needed.
+
+**2026-10-05T16:25:36Z**
+
+M3 closed after exo-a81g CI activation and maintainer-confirmed successful run https://github.com/engimatic-systems/exomemory/actions/runs/37335330379 at workflow commit 32b10bb; exo-9tjp installed-path acceptance is also closed. Local Rust/model gate, recovery, and real Codex 0.155.1/GPT 5.6 Luna evidence are recorded in verification/SQLITE-ACCEPTANCE.md and verification/PREMERGE-INTERFACE-ACCEPTANCE.md. Codex 0.160.0 now found on personal machine is outside this pinned host acceptance and needs separate compatibility work.
